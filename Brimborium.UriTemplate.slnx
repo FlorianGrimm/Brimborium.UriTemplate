@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Brimborium.UriTemplate.Benchmark/Brimborium.UriTemplate.Benchmark.csproj" Id="54902449-082e-45f1-887c-43b42beda7f5" />
+  <Project Path="Brimborium.UriTemplate.Test/Brimborium.UriTemplate.Test.csproj" />
+  <Project Path="Brimborium.UriTemplate/Brimborium.UriTemplate.csproj" />
+  <Project Path="Std.UriTemplate/Std.UriTemplate.csproj" Id="2413e6a1-47ff-4400-8d8d-c3aabc617e47" />
+</Solution>
