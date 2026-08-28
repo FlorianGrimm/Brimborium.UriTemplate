@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.Design;
+using System.Diagnostics.Tracing;
 using System.Text;
 
 namespace Brimborium.UriTemplate;
@@ -47,11 +48,11 @@ public static class UriTemplateParser {
                         //    firstToken = false;
                         //}
                         //if (firstToken) {
-                            //UriTemplateASTOperator uriTemplateASTOperator = new();
+                        //UriTemplateASTOperator uriTemplateASTOperator = new();
                         //}
 
                         UriTemplateASTPlaceholder item = new(
-                            Name: token.ToStringAndClear(),
+                            Name: CheckVarname(token.ToStringAndClear(), pos),
                             Composite: composite,
                             MaxChar: (maxCharBuffer is null) ? -1 : GetMaxChar(maxCharBuffer.ToStringAndClear(), pos)
                             );
@@ -78,7 +79,7 @@ public static class UriTemplateParser {
                         }
                         UriTemplateASTPlaceholder item = new(
                             //Operator: op.GetValueOrDefault(Operator.NO_OP),
-                            Name: token.ToStringAndClear(),
+                            Name: CheckVarname(token.ToStringAndClear(), pos),
                             Composite: composite,
                             MaxChar: (maxCharBuffer is null) ? -1 : GetMaxChar(maxCharBuffer.ToStringAndClear(), pos)
                             );
@@ -178,7 +179,7 @@ public static class UriTemplateParser {
         return result;
     }
 
-    private static void CheckVarname(string token, int col) {
+    public static string CheckVarname(string token, int col) {
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
         if (token.StartsWith('.') || token.EndsWith('.'))
 #else
@@ -199,10 +200,17 @@ public static class UriTemplateParser {
                 }
             }
         }
+        return token;
     }
 
     private static bool IsHexDigit(char c) {
+        return c is '0' or '1' or '2' or '3' or '4' or '5' or '6' or '7' or '8' or '9'
+            or 'A' or 'B' or 'C' or 'D' or 'E' or 'F'
+            or 'a' or 'b' or 'c' or 'd' or 'e' or 'f'
+            ;
+        /*
         return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+        */
     }
 
     private static void ValidateLiteral(char c, int col) {

@@ -134,12 +134,14 @@ public sealed record class UriTemplateASTPlaceholder(
         bool Composite,
         int MaxChar
         ) {
+
     public bool Expand(
         UriTemplateASTOperation astOperator,
         bool first,
         IReadOnlyDictionary<string, object?> substitutions,
         in UriTemplateTarget target
         ) {
+        
         if (!substitutions.TryGetValue(Name, out var value)) {
             return false;
         } else {
