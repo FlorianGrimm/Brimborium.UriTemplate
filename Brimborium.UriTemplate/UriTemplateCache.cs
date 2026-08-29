@@ -1,8 +1,8 @@
-﻿using Microsoft.Extensions.ObjectPool;
+﻿#pragma warning disable IDE0290 // Use primary constructor
+
+using Microsoft.Extensions.ObjectPool;
 
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Brimborium.UriTemplate;
@@ -10,7 +10,7 @@ namespace Brimborium.UriTemplate;
 public sealed class UriTemplateCache {
     private static UriTemplateCache? _Default;
 
-    [AllowNull]
+    [System.Diagnostics.CodeAnalysis.AllowNull]
     public static UriTemplateCache Default {
         get {
             {
@@ -32,13 +32,24 @@ public sealed class UriTemplateCache {
     private readonly ConcurrentDictionary<string, UriTemplateASTSequence> _CachedItems = new();
 
     private readonly DefaultObjectPool<StringBuilder> _StringBuilderPool;
+    private readonly UriTemplateValueSelector _UriTemplateValueCollection;
 
-    public UriTemplateCache() {
-        var policy = new StringBuilderPooledObjectPolicy {
-            InitialCapacity = 4 * 1024,
-            MaximumRetainedCapacity = 16 * 1024,
-        };
-        this._StringBuilderPool = new DefaultObjectPool<StringBuilder>(policy);
+    public UriTemplateCache() : this(
+        new DefaultObjectPool<StringBuilder>(
+            new StringBuilderPooledObjectPolicy {
+                InitialCapacity = 4 * 1024,
+                MaximumRetainedCapacity = 16 * 1024,
+            }),
+        UriTemplateValueSelector.CreateDefault()
+        ) {
+    }
+
+    public UriTemplateCache(
+        DefaultObjectPool<StringBuilder> stringBuilderPool,
+        UriTemplateValueSelector uriTemplateValueCollection
+        ) {
+        this._StringBuilderPool = stringBuilderPool;
+        this._UriTemplateValueCollection = uriTemplateValueCollection;
     }
 
     public string Expand(
@@ -46,7 +57,8 @@ public sealed class UriTemplateCache {
             IReadOnlyDictionary<string, object?> substitutions
         ) {
         var output = this._StringBuilderPool.Get();
-        this.Parse(template).Expand(substitutions, output);
+        UriTemplateTarget target = new(this._UriTemplateValueCollection, output);
+        _ = this.Parse(template).Expand(substitutions, target);
         var result = output.ToStringAndClear();
         this._StringBuilderPool.Return(output);
         return result;

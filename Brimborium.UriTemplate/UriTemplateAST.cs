@@ -8,13 +8,13 @@ public sealed record class UriTemplateASTSequence(
     params UriTemplateASTSequenceChild[] ListChild
 ) {
 
-    public void Expand(
-        IReadOnlyDictionary<string, object?> substitutions,
-        StringBuilder output
-        ) {
-        UriTemplateTarget target = new(output);
-        _ = this.Expand(substitutions, target);
-    }
+    //public void Expand(
+    //    IReadOnlyDictionary<string, object?> substitutions,
+    //    StringBuilder output
+    //    ) {
+    //    UriTemplateTarget target = new(output);
+    //    _ = this.Expand(substitutions, target);
+    //}
 
     public bool Expand(
         IReadOnlyDictionary<string, object?> substitutions,
@@ -148,6 +148,24 @@ public sealed record class UriTemplateASTPlaceholder(
             if (value is null) {
                 return false;
             }
+            { 
+                var t = target.Converter.GetAppendValueHandler(value);
+                if (t.IsEmpty) {
+                    return false;
+                } else {
+
+                    if (first) {
+                        astOperator.AddPrefix(target.Output);
+                    } else {
+                        astOperator.AddSeparator(target.Output);
+                    }
+
+                    t.Handler.AppendValue(astOperator, Name, value, MaxChar, Composite, target);
+
+                    return true;
+                }
+            }
+#if false
             SubstitutionType substType;
             {
                 if (UriTemplateTarget.IsNativeType(value)) {
@@ -187,14 +205,17 @@ public sealed record class UriTemplateASTPlaceholder(
                     break;
             }
             return true;
+#endif
         }
     }
 
+#if false
     private enum SubstitutionType {
         Empty,
         String,
         List,
         Dictionary
     }
+#endif
 
 }
