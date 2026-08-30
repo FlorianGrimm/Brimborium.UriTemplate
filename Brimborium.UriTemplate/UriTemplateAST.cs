@@ -142,30 +142,12 @@ public sealed record class UriTemplateASTPlaceholder(
         in UriTemplateTarget target
         ) {
         
-        if (!substitutions.TryGetValue(Name, out var value)) {
+        if (!substitutions.TryGetValue(this.Name, out var value)) {
             return false;
         } else {
             if (value is null) {
                 return false;
             }
-            { 
-                var t = target.Converter.GetAppendValueHandler(value);
-                if (t.IsEmpty) {
-                    return false;
-                } else {
-
-                    if (first) {
-                        astOperator.AddPrefix(target.Output);
-                    } else {
-                        astOperator.AddSeparator(target.Output);
-                    }
-
-                    t.Handler.AppendValue(astOperator, Name, value, MaxChar, Composite, target);
-
-                    return true;
-                }
-            }
-#if false
             SubstitutionType substType;
             {
                 if (UriTemplateTarget.IsNativeType(value)) {
@@ -183,7 +165,7 @@ public sealed record class UriTemplateASTPlaceholder(
                         substType = SubstitutionType.Dictionary;
                     }
                 } else {
-                    throw new ArgumentException($"Illegal class passed as substitution, found {value.GetType()} at name:{Name}");
+                    throw new ArgumentException($"Illegal class passed as substitution, found {value.GetType()} at name:{this.Name}");
                 }
             }
 
@@ -195,27 +177,24 @@ public sealed record class UriTemplateASTPlaceholder(
 
             switch (substType) {
                 case SubstitutionType.String:
-                    target.AddValue(astOperator, Name, value, MaxChar);
+                    target.AddValue(astOperator, this.Name, value, this.MaxChar);
                     break;
                 case SubstitutionType.List:
-                    _ = target.AddListValue(astOperator, Name, (IList)value, MaxChar, Composite);
+                    _ = target.AddListValue(astOperator, this.Name, (IList)value, this.MaxChar, this.Composite);
                     break;
                 case SubstitutionType.Dictionary:
-                    _ = target.AddDictionaryValue(astOperator, Name, ((IDictionary)value), MaxChar, Composite);
+                    _ = target.AddDictionaryValue(astOperator, this.Name, ((IDictionary)value), this.MaxChar, this.Composite);
                     break;
             }
             return true;
-#endif
         }
     }
 
-#if false
     private enum SubstitutionType {
         Empty,
         String,
         List,
         Dictionary
     }
-#endif
 
 }

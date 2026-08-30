@@ -3,10 +3,18 @@
 dotnet run -c Release -- --filter *
 dotnet run -c Release -- --memory
 
+| Method              | Mean       | Error    | StdDev   | Ratio | RatioSD | Gen0   | Allocated | Alloc Ratio |
+|-------------------- |-----------:|---------:|---------:|------:|--------:|-------:|----------:|------------:|
+| StdBenchmark        | 1,146.7 ns | 22.90 ns | 44.67 ns |  1.00 |    0.05 | 0.3071 |    3864 B |        1.00 |
+| BrimboriumBenchmark |   485.6 ns |  9.04 ns |  8.46 ns |  0.42 |    0.02 | 0.0591 |     744 B |        0.19 |
+
 */
+using System.Diagnostics;
+
 namespace Brimborium.UriTemplate.Benchmark;
 
 public class Program {
+
     public static void Main(string[] args) {
         //var summaries
 #if false
@@ -15,11 +23,14 @@ public class Program {
         CommonBenchmark commonBenchmark= new CommonBenchmark();
         commonBenchmark.BrimboriumBenchmark();
 
-        System.Console.WriteLine("1");
-        for (int i = 0; i < 1_000_000; i++) { 
+        const int LoopCount = 10_000_000;
+        var start=Stopwatch.GetTimestamp();
+        for (int i = 0; i < LoopCount; i++) { 
             commonBenchmark.BrimboriumBenchmark();
         }
-        System.Console.WriteLine("2");
+        var e = Stopwatch.GetElapsedTime(start);
+        System.Console.WriteLine($"{e.TotalNanoseconds / LoopCount} ns");
+        // 5006999800 ns
 #endif
     }
 }

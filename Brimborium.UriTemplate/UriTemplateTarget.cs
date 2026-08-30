@@ -1,22 +1,26 @@
 ﻿using System.Collections;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Brimborium.UriTemplate;
 
 public readonly struct UriTemplateTarget(
-    UriTemplateValueSelector converter,
     StringBuilder output
     ) {
     private readonly StringBuilder _ReservedBuffer = new(3);
-    public readonly UriTemplateValueSelector Converter = converter;
     public readonly StringBuilder Output = output;
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public StringBuilder Append(char value) => this.Output.Append(value);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public StringBuilder Append(string value) => this.Output.Append(value);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsNativeType(object value) => value is string or bool or int or long or float or double or decimal;
-//TODO: or TimeOnly or DateOnly or DateTime or DateTimeOffset
+    //TODO: or TimeOnly or DateOnly or DateTime or DateTimeOffset
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string ConvertNativeTypes(object? value) {
         return value switch {
             null => string.Empty,
@@ -32,7 +36,6 @@ public readonly struct UriTemplateTarget(
         };
     }
 
-#if false
     public bool AddListValue(UriTemplateASTOperation astOperator, string token, IList value, int maxChar, bool composite) {
         bool first = true;
         foreach (object innerValue in value) {
@@ -78,7 +81,6 @@ public readonly struct UriTemplateTarget(
         }
         return !first;
     }
-#endif
 
     public void AddValue(UriTemplateASTOperation astOperator, string token, object value, int maxChar) {
         if (astOperator.Operator is { } op) {
@@ -125,14 +127,8 @@ public readonly struct UriTemplateTarget(
     }
 
     public void AddValueInner(string? prefix, object? value, int maxChar, bool replaceReserved) {
-        if (value is { }) {
-            var avhr=this.Converter.GetAppendValueHandler(value);
-            if (avhr.Matches && !avhr.IsEmpty) {
-                avhr.Handler.AddValueText(prefix, value, maxChar, replaceReserved, this);
-            }
-        }
-        //string stringValue = ConvertNativeTypes(value);
-        //this.AddValueText(prefix, stringValue, maxChar, replaceReserved);
+        string stringValue = ConvertNativeTypes(value);
+        this.AddValueText(prefix, stringValue, maxChar, replaceReserved);
     }
 
     public void AddValueText(string? prefix, string stringValue, int maxChar, bool replaceReserved) {
