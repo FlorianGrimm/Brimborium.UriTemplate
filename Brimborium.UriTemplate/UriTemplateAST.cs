@@ -150,8 +150,21 @@ public sealed record class UriTemplateASTPlaceholder(
             }
             SubstitutionType substType;
             {
-                if (UriTemplateTarget.IsNativeType(value)) {
+                if (value is string stringValue) {
+                    if (string.IsNullOrEmpty(stringValue)) {
+                        return false;
+                    } else { 
+                        substType = SubstitutionType.String;
+                    }
+                } else if (UriTemplateTarget.IsNativeType(value)) {
                     substType = SubstitutionType.String;
+                } else if (value is IUriTemplateValue uriTemplateValue) {
+                    if (uriTemplateValue.TryGetValue(substitutions, out var nextValue)) {
+                        substType = SubstitutionType.Value;
+                        value = nextValue;
+                    } else {
+                        return false;
+                    }
                 } else if (value is IList list) {
                     if (0 == list.Count) {
                         return false;
@@ -177,7 +190,10 @@ public sealed record class UriTemplateASTPlaceholder(
 
             switch (substType) {
                 case SubstitutionType.String:
-                    target.AddValue(astOperator, this.Name, value, this.MaxChar);
+                    target.AddScalarValue(astOperator, this.Name, value, this.MaxChar);
+                    break;
+                case SubstitutionType.Value:
+                    target.AddScalarValue(astOperator, this.Name, value, this.MaxChar);
                     break;
                 case SubstitutionType.List:
                     _ = target.AddListValue(astOperator, this.Name, (IList)value, this.MaxChar, this.Composite);
@@ -193,6 +209,7 @@ public sealed record class UriTemplateASTPlaceholder(
     private enum SubstitutionType {
         Empty,
         String,
+        Value,
         List,
         Dictionary
     }
