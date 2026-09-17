@@ -1,13 +1,18 @@
 ﻿/*
 
 dotnet run -c Release -- --filter *
-dotnet run -c Release -- --memory
 
-| Method              | Mean       | Error    | StdDev   | Ratio | RatioSD | Gen0   | Allocated | Alloc Ratio |
-|-------------------- |-----------:|---------:|---------:|------:|--------:|-------:|----------:|------------:|
-| StdBenchmark        | 1,146.7 ns | 22.90 ns | 44.67 ns |  1.00 |    0.05 | 0.3071 |    3864 B |        1.00 |
-| BrimboriumBenchmark |   485.6 ns |  9.04 ns |  8.46 ns |  0.42 |    0.02 | 0.0591 |     744 B |        0.19 |
+| Method              | Mean       | Error    | StdDev   | Ratio | RatioSD |
+|-------------------- |-----------:|---------:|---------:|------:|--------:|
+| StdBenchmark        | 1,359.7 us | 26.88 us | 33.01 us |  1.00 |    0.03 |
+| BrimboriumBenchmark |   474.9 us |  7.96 us |  8.52 us |  0.35 |    0.01 |
 
+dotnet run -c Release -- --filter * --memory
+
+| Method              | Mean       | Error    | StdDev   | Ratio | RatioSD | Gen0     | Allocated  | Alloc Ratio |
+|-------------------- |-----------:|---------:|---------:|------:|--------:|---------:|-----------:|------------:|
+| StdBenchmark        | 1,122.9 us | 22.25 us | 38.97 us |  1.00 |    0.05 | 306.6406 | 3777.21 KB |        1.00 |
+| BrimboriumBenchmark |   465.4 us |  9.22 us | 16.15 us |  0.41 |    0.02 |  58.5938 |  726.56 KB |        0.19 |
 */
 using System.Diagnostics;
 
