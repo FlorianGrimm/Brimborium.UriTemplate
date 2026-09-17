@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.Design;
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Text;
 
 namespace Brimborium.UriTemplate;
@@ -12,7 +13,7 @@ public interface IODataValue {
 }
 
 
-public record class ODataExpression(
+public sealed record class ODataExpression(
     IODataValue Value
     ) : IUriTemplateValue, IODataValue {
     public bool TryGetValue(
@@ -46,7 +47,7 @@ public record class ODataExpression(
 
 }
 
-public record class ODataExpressionResolved(
+public sealed record class ODataExpressionResolved(
     IODataValue Value
     ) : IUriTemplateValue, IODataValue {
     public bool TryGetValue(
@@ -70,7 +71,43 @@ public record class ODataExpressionResolved(
 
 }
 
-public record ODataConstant(string Value) : IUriTemplateValue, IODataValue {
+public sealed record ODataFieldName(string Value) : IUriTemplateValue, IODataValue {
+    public bool TryGetValue(
+        IReadOnlyDictionary<string, object?> substitutions,
+        [MaybeNullWhen(false)] out IODataValue result) {
+        result = this;
+        return true;
+    }
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
+        this.AppendValue(target);
+    }
+
+    public bool AppendValue(in UriTemplateTarget target) {
+        var output = target.Output;
+        target.Append(this.Value);
+        return true;
+    }
+}
+
+public sealed record ODataRawString(string Value) : IUriTemplateValue, IODataValue {
+    public bool TryGetValue(
+        IReadOnlyDictionary<string, object?> substitutions,
+        [MaybeNullWhen(false)] out IODataValue result) {
+        result = this;
+        return true;
+    }
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
+        this.AppendValue(target);
+    }
+
+    public bool AppendValue(in UriTemplateTarget target) {
+        var output = target.Output;
+        target.Append(this.Value);
+        return true;
+    }
+}
+
+public sealed record ODataConstant(string Value) : IUriTemplateValue, IODataValue {
     public bool TryGetValue(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result) {
@@ -88,7 +125,7 @@ public record ODataConstant(string Value) : IUriTemplateValue, IODataValue {
     }
 }
 
-public record ODataSequence(
+public sealed record ODataSequence(
     string Name,
     IODataValue[] ListItem
     ) : IUriTemplateValue, IODataValue {
@@ -142,7 +179,88 @@ public record ODataSequence(
     }
 }
 
-public record ODataOperation(
+public sealed record ODataList(
+    string Name,
+    string Seperation,
+    IODataValue[] ListItem
+    ) : IUriTemplateValue, IODataValue {
+
+    public bool TryGetValue(
+        IReadOnlyDictionary<string, object?> substitutions,
+        [MaybeNullWhen(false)] out IODataValue result
+        ) {
+        var thisListItem = this.ListItem;
+        IODataValue[]? nextListItem = null;
+        for (var i = 0; i < thisListItem.Length; i++) {
+            if (thisListItem[i] is IUriTemplateValue uriTemplateValue) {
+                if (uriTemplateValue.TryGetValue(substitutions, out var nextItem)) {
+                    if (ReferenceEquals(uriTemplateValue, nextItem)) {
+                        // no change
+                    } else {
+                        if (nextListItem is null) {
+                            nextListItem = thisListItem.ToArray();
+                            nextListItem[i] = nextItem;
+                        } else {
+                            nextListItem[i] = nextItem;
+                        }
+                    }
+                }
+            }
+        }
+        if (nextListItem is null) {
+            result = this;
+            return true;
+        } else {
+            result = new ODataList(this.Name, this.Seperation, nextListItem);
+            return true;
+        }
+    }
+
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
+        this.AppendValue(target);
+    }
+
+    public bool AppendValue(in UriTemplateTarget target) {
+#if false
+        bool result = true;
+        bool isSeperatedAppened = true;
+        foreach (var item in ListItem) {
+            if (isSeperatedAppened) {
+                //
+            } else { 
+                target.Append(this.Seperation);
+                isSeperatedAppened = true;
+            }
+            var subResult = item.AppendValue(target);
+            if (subResult) {
+                // OK
+                isSeperatedAppened = false;
+            } else {
+                result = false;
+            }
+        }
+        return result;
+#endif
+        bool result = true;
+        int lastSeperate = -1;
+        foreach (var item in ListItem) {
+            var subResult = item.AppendValue(target);
+            if (subResult) {
+                // OK
+                lastSeperate = target.Output.Length;
+                target.Append(this.Seperation);
+            } else {
+                result = false;
+            }
+        }
+        if (0 <= lastSeperate) {
+            target.Output.Length = lastSeperate;
+        }
+        return result;
+    }
+}
+
+public sealed record ODataOperation(
     IODataValue Left,
     string Name,
     IODataValue Right
@@ -210,7 +328,7 @@ public record ODataOperation(
     }
 }
 
-public record ODataFunction(
+public sealed record ODataFunction(
     string Name,
     IODataValue[] ListItem
     ) : IUriTemplateValue, IODataValue {
@@ -274,7 +392,7 @@ public record ODataFunction(
     }
 }
 
-public record ODataVariable(
+public sealed record ODataVariable(
     string Name,
     ODataValue? Value
     ) : IUriTemplateValue, IODataValue {
@@ -305,7 +423,7 @@ public record ODataVariable(
     }
 }
 
-public record ODataValue(object? Value) : IODataValue {
+public sealed record ODataValue(object? Value) : IODataValue {
     public bool AppendValue(in UriTemplateTarget target) {
         var output = target.Output;
         if (this.Value is null) {

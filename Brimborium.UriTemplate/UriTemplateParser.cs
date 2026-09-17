@@ -110,6 +110,8 @@ public static class UriTemplateParser {
                                 }
                             } else if (character == '*') {
                                 composite = true;
+                            } else if (character == '$' && token.Length == 0) {
+                                _ = token.Append(character);
                             } else {
                                 ValidateLiteral(character, pos);
                                 _ = token.Append(character);
