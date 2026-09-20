@@ -7,5 +7,5 @@ public interface IUriTemplateValue {
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result);
 
-    void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target);
+    void AppendValue(string? prefix, int maxChar, bool replaceReserved, ref UriTemplateTarget target);
 }

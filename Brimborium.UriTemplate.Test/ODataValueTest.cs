@@ -7,11 +7,12 @@ public class ODataValueTest {
     [Arguments("Tom's car", "'Tom''s%20car'")]
     public async Task ODataValueStringTest(string value, string expected) {
         {
-            StringBuilder output = new();
-            UriTemplateTarget target = new(output);
+            Span<char> outputBuffer = stackalloc char[4096];
+            UriTemplateTarget target = new(outputBuffer);
             ODataValue sut = new(value);
-            sut.AppendValue(target);
-            await Assert.That(output.ToString()).IsEqualTo(expected);
+            sut.AppendValue(ref target);
+            var result = target.ToStringAndDispose();
+            await Assert.That(result).IsEqualTo(expected);
         }
     }
 
@@ -22,11 +23,12 @@ public class ODataValueTest {
     [Arguments(-124, "-124")]
     public async Task ODataValueIntTest(int value, string expected) {
         {
-            StringBuilder output = new();
-            UriTemplateTarget target = new(output);
+            Span<char> outputBuffer = stackalloc char[4096];
+            UriTemplateTarget target = new(outputBuffer);
             ODataValue sut = new(value);
-            sut.AppendValue(target);
-            await Assert.That(output.ToString()).IsEqualTo(expected);
+            sut.AppendValue(ref target);
+            var result = target.ToStringAndDispose();
+            await Assert.That(result).IsEqualTo(expected);
         }
     }
 
@@ -37,11 +39,12 @@ public class ODataValueTest {
     [Arguments(-124, "-124")]
     public async Task ODataValueLongTest(long value, string expected) {
         {
-            StringBuilder output = new();
-            UriTemplateTarget target = new(output);
+            Span<char> outputBuffer = stackalloc char[4096];
+            UriTemplateTarget target = new(outputBuffer);
             ODataValue sut = new(value);
-            sut.AppendValue(target);
-            await Assert.That(output.ToString()).IsEqualTo(expected);
+            sut.AppendValue(ref target);
+            var result = target.ToStringAndDispose();
+            await Assert.That(result).IsEqualTo(expected);
         }
     }
 
@@ -52,11 +55,12 @@ public class ODataValueTest {
     [Arguments(-1.24, "-1.24")]
     public async Task ODataValueFloatTest(float value, string expected) {
         {
-            StringBuilder output = new();
-            UriTemplateTarget target = new(output);
+            Span<char> outputBuffer = stackalloc char[4096];
+            UriTemplateTarget target = new(outputBuffer);
             ODataValue sut = new(value);
-            sut.AppendValue(target);
-            await Assert.That(output.ToString()).IsEqualTo(expected);
+            sut.AppendValue(ref target);
+            var result = target.ToStringAndDispose();
+            await Assert.That(result).IsEqualTo(expected);
         }
     }
 
@@ -67,11 +71,12 @@ public class ODataValueTest {
     [Arguments(-1.24, "-1.24")]
     public async Task ODataValueDoubleTest(double value, string expected) {
         {
-            StringBuilder output = new();
-            UriTemplateTarget target = new(output);
+            Span<char> outputBuffer = stackalloc char[4096];
+            UriTemplateTarget target = new(outputBuffer);
             ODataValue sut = new(value);
-            sut.AppendValue(target);
-            await Assert.That(output.ToString()).IsEqualTo(expected);
+            sut.AppendValue(ref target);
+            var result = target.ToStringAndDispose();
+            await Assert.That(result).IsEqualTo(expected);
         }
     }
 
@@ -82,11 +87,12 @@ public class ODataValueTest {
     [Arguments(-1.24, "-1.24")]
     public async Task ODataValueDecimalTest(decimal value, string expected) {
         {
-            StringBuilder output = new();
-            UriTemplateTarget target = new(output);
+            Span<char> outputBuffer = stackalloc char[4096];
+            UriTemplateTarget target = new(outputBuffer);
             ODataValue sut = new(value);
-            sut.AppendValue(target);
-            await Assert.That(output.ToString()).IsEqualTo(expected);
+            sut.AppendValue(ref target);
+            var result = target.ToStringAndDispose();
+            await Assert.That(result).IsEqualTo(expected);
         }
     }
 
@@ -98,11 +104,12 @@ public class ODataValueTest {
     public async Task ODataValueDateTimeOffset(string text, string expected) {
         {
             var value = DateTimeOffset.Parse(text);
-            StringBuilder output = new();
-            UriTemplateTarget target = new(output);
+            Span<char> outputBuffer = stackalloc char[4096];
+            UriTemplateTarget target = new(outputBuffer);
             ODataValue sut = new(value);
-            sut.AppendValue(target);
-            await Assert.That(output.ToString()).IsEqualTo(expected);
+            sut.AppendValue(ref target);
+            var result = target.ToStringAndDispose();
+            await Assert.That(result).IsEqualTo(expected);
         }
     }
 
@@ -114,11 +121,12 @@ public class ODataValueTest {
     public async Task ODataValueDateTime(string text, string expected) {
         {
             var value = DateTime.Parse(text);
-            StringBuilder output = new();
-            UriTemplateTarget target = new(output);
+            Span<char> outputBuffer = stackalloc char[4096];
+            UriTemplateTarget target = new(outputBuffer);
             ODataValue sut = new(value);
-            sut.AppendValue(target);
-            await Assert.That(output.ToString()).IsEqualTo(expected);
+            sut.AppendValue(ref target);
+            var result = target.ToStringAndDispose();
+            await Assert.That(result).IsEqualTo(expected);
         }
     }
 
@@ -128,11 +136,12 @@ public class ODataValueTest {
     public async Task ODataValueDateOnly(string text, string expected) {
         {
             var value = DateOnly.Parse(text);
-            StringBuilder output = new();
-            UriTemplateTarget target = new(output);
+            Span<char> outputBuffer = stackalloc char[4096];
+            UriTemplateTarget target = new(outputBuffer);
             ODataValue sut = new(value);
-            sut.AppendValue(target);
-            await Assert.That(output.ToString()).IsEqualTo(expected);
+            sut.AppendValue(ref target);
+            var result = target.ToStringAndDispose();
+            await Assert.That(result).IsEqualTo(expected);
         }
     }
     [Test]

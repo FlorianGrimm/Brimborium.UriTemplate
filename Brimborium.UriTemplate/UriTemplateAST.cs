@@ -18,10 +18,10 @@ public sealed record class UriTemplateASTSequence(
 
     public bool Expand(
         IReadOnlyDictionary<string, object?> substitutions,
-        UriTemplateTarget target) {
+        ref UriTemplateTarget target) {
         bool result = false;
         foreach (var item in this.ListChild) {
-            var subResult = item.Expand(substitutions, target);
+            var subResult = item.Expand(substitutions, ref target);
             result |= subResult;
         }
         return result;
@@ -31,7 +31,7 @@ public sealed record class UriTemplateASTSequence(
 public abstract record class UriTemplateASTSequenceChild() {
     public virtual bool Expand(
         IReadOnlyDictionary<string, object?> substitutions,
-        in UriTemplateTarget target
+        ref UriTemplateTarget target
         ) => false;
 }
 
@@ -40,9 +40,9 @@ public sealed record class UriTemplateASTConstant(
     ) : UriTemplateASTSequenceChild() {
     public override bool Expand(
         IReadOnlyDictionary<string, object?> substitutions,
-        in UriTemplateTarget target
+        ref UriTemplateTarget target
         ) {
-        _ = target.Append(this.Value);
+        target.Append(this.Value);
         return false;
     }
 }
@@ -62,26 +62,26 @@ public sealed record class UriTemplateASTOperation(
         UriTemplateASTOperator? Operator,
         params UriTemplateASTPlaceholder[] ListPlaceholder
         ) : UriTemplateASTSequenceChild() {
-    public void AddPrefix(StringBuilder output) {
+    public void AddPrefix(ref ValueStringBuilder output) {
         if (this.Operator is { } op) {
             switch (op) {
                 case UriTemplateASTOperator.Hash:
-                    _ = output.Append('#');
+                    output.Append('#');
                     break;
                 case UriTemplateASTOperator.Dot:
-                    _ = output.Append('.');
+                    output.Append('.');
                     break;
                 case UriTemplateASTOperator.Slash:
-                    _ = output.Append('/');
+                    output.Append('/');
                     break;
                 case UriTemplateASTOperator.Semicolon:
-                    _ = output.Append(';');
+                    output.Append(';');
                     break;
                 case UriTemplateASTOperator.Questionmark:
-                    _ = output.Append('?');
+                    output.Append('?');
                     break;
                 case UriTemplateASTOperator.Ampersand:
-                    _ = output.Append('&');
+                    output.Append('&');
                     break;
                 default:
                     return;
@@ -89,24 +89,24 @@ public sealed record class UriTemplateASTOperation(
         }
     }
 
-    public void AddSeparator(StringBuilder output) {
+    public void AddSeparator(ref ValueStringBuilder output) {
         if (this.Operator is { } op) {
             switch (op) {
                 case UriTemplateASTOperator.Dot:
-                    _ = output.Append('.');
+                    output.Append('.');
                     return;
                 case UriTemplateASTOperator.Slash:
-                    _ = output.Append('/');
+                    output.Append('/');
                     return;
                 case UriTemplateASTOperator.Semicolon:
-                    _ = output.Append(';');
+                    output.Append(';');
                     return;
                 case UriTemplateASTOperator.Questionmark:
                 case UriTemplateASTOperator.Ampersand:
-                    _ = output.Append('&');
+                    output.Append('&');
                     return;
                 default:
-                    _ = output.Append(',');
+                    output.Append(',');
                     return;
             }
         }
@@ -114,12 +114,12 @@ public sealed record class UriTemplateASTOperation(
 
     public override bool Expand(
         IReadOnlyDictionary<string, object?> substitutions,
-        in UriTemplateTarget target
+        ref UriTemplateTarget target
         ) {
         bool first = true;
         bool result = false;
         foreach (var placeholder in this.ListPlaceholder) {
-            var subResult = placeholder.Expand(this, first, substitutions, target);
+            var subResult = placeholder.Expand(this, first, substitutions, ref target);
             if (subResult) {
                 result = true;
                 first = false;
@@ -139,7 +139,7 @@ public sealed record class UriTemplateASTPlaceholder(
         UriTemplateASTOperation astOperator,
         bool first,
         IReadOnlyDictionary<string, object?> substitutions,
-        in UriTemplateTarget target
+        ref UriTemplateTarget target
         ) {
         
         if (!substitutions.TryGetValue(this.Name, out var value)) {
@@ -183,9 +183,9 @@ public sealed record class UriTemplateASTPlaceholder(
             }
 
             if (first) {
-                astOperator.AddPrefix(target.Output);
+                astOperator.AddPrefix(ref target.Output);
             } else {
-                astOperator.AddSeparator(target.Output);
+                astOperator.AddSeparator(ref target.Output);
             }
 
             switch (substType) {

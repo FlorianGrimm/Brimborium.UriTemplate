@@ -31,32 +31,24 @@ public sealed class UriTemplateCache {
 
     private readonly ConcurrentDictionary<string, UriTemplateASTSequence> _CachedItems = new();
 
-    private readonly DefaultObjectPool<StringBuilder> _StringBuilderPool;
-
-    public UriTemplateCache() : this(
-        new DefaultObjectPool<StringBuilder>(
-            new StringBuilderPooledObjectPolicy {
-                InitialCapacity = 4 * 1024,
-                MaximumRetainedCapacity = 16 * 1024,
-            })
-        ) {
-    }
-
-    public UriTemplateCache(
-        DefaultObjectPool<StringBuilder> stringBuilderPool
-        ) {
-        this._StringBuilderPool = stringBuilderPool;
-    }
+    public UriTemplateCache(        ) {    }
 
     public string Expand(
             string template,
             IReadOnlyDictionary<string, object?> substitutions
         ) {
+        /*
         var output = this._StringBuilderPool.Get();
         UriTemplateTarget target = new(output);
         _ = this.Parse(template).Expand(substitutions, target);
         var result = output.ToStringAndClear();
         this._StringBuilderPool.Return(output);
+        return result;
+        */
+        Span<char> outputBuffer = stackalloc char[4096];
+        UriTemplateTarget target = new(outputBuffer);
+        _ = this.Parse(template).Expand(substitutions, ref target);
+        var result = target.Output.ToStringAndDispose();
         return result;
     }
 

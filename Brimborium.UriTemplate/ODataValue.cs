@@ -9,7 +9,7 @@ using System.Text;
 namespace Brimborium.UriTemplate;
 
 public interface IODataValue {
-    bool AppendValue(in UriTemplateTarget target);
+    bool AppendValue(ref UriTemplateTarget target);
 }
 
 
@@ -37,12 +37,12 @@ public sealed record class ODataExpression(
         }
     }
 
-    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
-        this.AppendValue(target);
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, ref UriTemplateTarget target) {
+        this.AppendValue(ref target);
     }
 
-    public bool AppendValue(in UriTemplateTarget target) {
-        return this.Value.AppendValue(target);
+    public bool AppendValue(ref UriTemplateTarget target) {
+        return this.Value.AppendValue(ref target);
     }
 
 }
@@ -60,13 +60,13 @@ public sealed record class ODataExpressionResolved(
         }
     }
 
-    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, ref UriTemplateTarget target) {
         if (prefix is { Length: > 0 }) { throw new ArgumentException("should be null", nameof(prefix)); }
-        this.AppendValue(target);
+        this.AppendValue(ref target);
     }
 
-    public bool AppendValue(in UriTemplateTarget target) {
-        return this.Value.AppendValue(target);
+    public bool AppendValue(ref UriTemplateTarget target) {
+        return this.Value.AppendValue(ref target);
     }
 
 }
@@ -78,11 +78,11 @@ public sealed record ODataFieldName(string Value) : IUriTemplateValue, IODataVal
         result = this;
         return true;
     }
-    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
-        this.AppendValue(target);
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, ref UriTemplateTarget target) {
+        this.AppendValue(ref target);
     }
 
-    public bool AppendValue(in UriTemplateTarget target) {
+    public bool AppendValue(ref UriTemplateTarget target) {
         var output = target.Output;
         target.Append(this.Value);
         return true;
@@ -96,11 +96,11 @@ public sealed record ODataRawString(string Value) : IUriTemplateValue, IODataVal
         result = this;
         return true;
     }
-    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
-        this.AppendValue(target);
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, ref UriTemplateTarget target) {
+        this.AppendValue(ref target);
     }
 
-    public bool AppendValue(in UriTemplateTarget target) {
+    public bool AppendValue(ref UriTemplateTarget target) {
         var output = target.Output;
         target.Append(this.Value);
         return true;
@@ -114,11 +114,11 @@ public sealed record ODataConstant(string Value) : IUriTemplateValue, IODataValu
         result = this;
         return true;
     }
-    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
-        this.AppendValue(target);
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, ref UriTemplateTarget target) {
+        this.AppendValue(ref target);
     }
 
-    public bool AppendValue(in UriTemplateTarget target) {
+    public bool AppendValue(ref UriTemplateTarget target) {
         var output = target.Output;
         target.AddODataValue(this.Value);
         return true;
@@ -161,14 +161,14 @@ public sealed record ODataSequence(
         }
     }
 
-    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
-        this.AppendValue(target);
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, ref UriTemplateTarget target) {
+        this.AppendValue(ref target);
     }
 
-    public bool AppendValue(in UriTemplateTarget target) {
+    public bool AppendValue(ref UriTemplateTarget target) {
         bool result = true;
         foreach (var item in ListItem) {
-            var subResult = item.AppendValue(target);
+            var subResult = item.AppendValue(ref target);
             if (subResult) {
                 // OK
             } else {
@@ -216,11 +216,11 @@ public sealed record ODataList(
         }
     }
 
-    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
-        this.AppendValue(target);
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, ref UriTemplateTarget target) {
+        this.AppendValue(ref target);
     }
 
-    public bool AppendValue(in UriTemplateTarget target) {
+    public bool AppendValue(ref UriTemplateTarget target) {
 #if false
         bool result = true;
         bool isSeperatedAppened = true;
@@ -244,7 +244,7 @@ public sealed record ODataList(
         bool result = true;
         int lastSeperate = -1;
         foreach (var item in ListItem) {
-            var subResult = item.AppendValue(target);
+            var subResult = item.AppendValue(ref target);
             if (subResult) {
                 // OK
                 lastSeperate = target.Output.Length;
@@ -313,16 +313,18 @@ public sealed record ODataOperation(
         }
     }
 
-    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
-        this.AppendValue(target);
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, ref UriTemplateTarget target) {
+        this.AppendValue(ref target);
     }
 
-    public bool AppendValue(in UriTemplateTarget target) {
+    public bool AppendValue(ref UriTemplateTarget target) {
         bool result = true;
-        var subResultLeft = this.Left.AppendValue(target);
+        var subResultLeft = this.Left.AppendValue(ref target);
         if (!subResultLeft) { result = false; }
-        _ = target.Append("%20").Append(this.Name).Append("%20");
-        var subResultRight = this.Right.AppendValue(target);
+        target.Append("%20");
+        target.Append(this.Name);
+        target.Append("%20");
+        var subResultRight = this.Right.AppendValue(ref target);
         if (!subResultRight) { result = false; }
         return result;
     }
@@ -366,16 +368,17 @@ public sealed record ODataFunction(
         }
     }
 
-    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, ref UriTemplateTarget target) {
         throw new NotImplementedException();
     }
 
-    public bool AppendValue(in UriTemplateTarget target) {
+    public bool AppendValue(ref UriTemplateTarget target) {
         bool result = true;
-        _ = target.Append(this.Name).Append('(');
+        target.Append(this.Name);
+        target.Append('(');
         bool first = true;
         foreach (var item in ListItem) {
-            var subResult = item.AppendValue(target);
+            var subResult = item.AppendValue(ref target);
             if (subResult) {
                 // OK
             } else {
@@ -384,10 +387,10 @@ public sealed record ODataFunction(
             if (first) {
                 first = false;
             } else {
-                _ = target.Append(',');
+                target.Append(',');
             }
         }
-        _ = target.Append(')');
+        target.Append(')');
         return result;
     }
 }
@@ -414,59 +417,57 @@ public sealed record ODataVariable(
         return false;
     }
 
-    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
+    public void AppendValue(string? prefix, int maxChar, bool replaceReserved, ref UriTemplateTarget target) {
         throw new NotImplementedException();
     }
 
-    public bool AppendValue(in UriTemplateTarget target) {
+    public bool AppendValue(ref UriTemplateTarget target) {
         return false;
     }
 }
 
 public sealed record ODataValue(object? Value) : IODataValue {
-    public bool AppendValue(in UriTemplateTarget target) {
-        var output = target.Output;
+    public bool AppendValue(ref UriTemplateTarget target) {
         if (this.Value is null) {
-            _ = output.Append("null");
+            target.Output.Append("null");
             return true;
         } else if (this.Value is string stringValue) {
-            _ = output.Append('\'');
+            target.Output.Append('\'');
             target.AddODataValue(stringValue);
-            _ = output.Append('\'');
+            target.Output.Append('\'');
             return true;
         } else if (this.Value is int intValue) {
-            _ = target.Append(intValue.ToString());
-
+            target.Append(intValue.ToString());
             return true;
         } else if (this.Value is long longValue) {
-            _ = target.Append(longValue.ToString());
+            target.Append(longValue.ToString());
             return true;
         } else if (this.Value is float floatValue) {
-            _ = target.Append(floatValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            target.Append(floatValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
             return true;
         } else if (this.Value is double doubleValue) {
-            _ = target.Append(doubleValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            target.Append(doubleValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
             return true;
         } else if (this.Value is decimal decimalValue) {
-            _ = target.Append(decimalValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            target.Append(decimalValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
             return true;
         } else if (this.Value is DateTimeOffset dateTimeOffsetValue) {
-            _ = target.Append($"'{dateTimeOffsetValue:O}'");
+            target.Append($"'{dateTimeOffsetValue:O}'");
             return true;
         } else if (this.Value is DateTime dateTimeValue) {
-            _ = target.Append($"'{dateTimeValue:O}'");
+            target.Append($"'{dateTimeValue:O}'");
             return true;
         } else if (this.Value is DateOnly dateOnlyValue) {
-            _ = target.Append($"'{dateOnlyValue:yyyy-MM-dd}'");
+            target.Append($"'{dateOnlyValue:yyyy-MM-dd}'");
             return true;
         } else if (this.Value is TimeOnly timeOnlyValue) {
-            _ = target.Append($"'{timeOnlyValue:hh:mm:ss}'");
+            target.Append($"'{timeOnlyValue:hh:mm:ss}'");
             return true;
         } else if (this.Value is bool boolValue) {
             if (boolValue) {
-                _ = target.Append("true");
+                target.Append("true");
             } else {
-                _ = target.Append("false");
+                target.Append("false");
             }
             return true;
         } else {

@@ -17,10 +17,10 @@ public class ODataExpressionTests {
             throw new Exception();
         }
 
-        StringBuilder output = new();
-        UriTemplateTarget target = new(output);
-        var success=result.AppendValue(target);
-        var act = target.ToString();
+        Span<char> outputBuffer = stackalloc char[4096];
+        UriTemplateTarget target = new(outputBuffer);
+        var success = result.AppendValue(ref target);
+        var act = target.Output.ToStringAndDispose();
         await Assert.That(act).IsEqualTo("Hello%20eq%20'World'");
         await Assert.That(success).IsTrue();
     }

@@ -11,14 +11,15 @@ public class ODataOperationTests {
         string exptected
         ) {
         {
-            StringBuilder output = new();
-            UriTemplateTarget target = new(output);
+            Span<char> outputBuffer = stackalloc char[4096];
+            UriTemplateTarget target = new(outputBuffer);
             ODataOperation sut = new(
                 new ODataConstant(propertyName),
                 operation,
                 new ODataValue(value));
-            sut.AppendValue(target);
-            await Assert.That(output.ToString()).IsEqualTo(exptected);
+            sut.AppendValue(ref target);
+            var result = target.ToStringAndDispose();
+            await Assert.That(result).IsEqualTo(exptected);
         }
     }
 }
