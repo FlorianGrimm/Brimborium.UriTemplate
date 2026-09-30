@@ -1,5 +1,6 @@
 ﻿namespace Brimborium.UriTemplate;
 
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage()]
 public static class UriTemplate {
     public static string Expand(
         string template,

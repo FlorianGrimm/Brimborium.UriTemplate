@@ -134,11 +134,12 @@ public readonly struct UriTemplateTarget(
         }
 
         {
-            var stringValue = ConvertNativeTypes(value);
-            if (stringValue is { }) {
-                this.AddValueText(prefix, stringValue, maxChar, replaceReserved);
-            } else if (value is IUriTemplateValue uriTemplateValue) {
+            if (value is IUriTemplateValue uriTemplateValue) {
                 uriTemplateValue.AppendValue(prefix, maxChar, replaceReserved, this);
+            } else if (value is IODataValue oDataValue) {
+                _ = oDataValue.AppendValue(this);
+            } else if (ConvertNativeTypes(value) is { } stringValue) {
+                this.AddValueText(prefix, stringValue, maxChar, replaceReserved);
             } else {
                 throw new ArgumentException($"Illegal class passed as substitution, found {value.GetType()}");
             }

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.Design;
-using System.Diagnostics.CodeAnalysis;
-using System.Numerics;
-using System.Text;
+﻿using System.Diagnostics.CodeAnalysis;
 
 namespace Brimborium.UriTemplate;
 
@@ -347,26 +341,24 @@ public sealed record ODataFunction(
     }
 
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
-        throw new NotImplementedException();
+        this.AppendValue(target);
     }
 
     public bool AppendValue(in UriTemplateTarget target) {
         bool result = true;
         _ = target.Append(this.Name).Append('(');
-        bool first = true;
+        var outputLength = target.Output.Length;
         foreach (var item in ListItem) {
             var subResult = item.AppendValue(target);
+            outputLength = target.Output.Length;
             if (subResult) {
                 // OK
+                _ = target.Append(',');
             } else {
                 result = false;
             }
-            if (first) {
-                first = false;
-            } else {
-                _ = target.Append(',');
-            }
         }
+        target.Output.Length = outputLength;
         _ = target.Append(')');
         return result;
     }
@@ -381,8 +373,13 @@ public sealed record ODataVariable(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result) {
         if (substitutions.TryGetValue(this.Name, out var substitutionValue)) {
-            result = new ODataValue(substitutionValue);
-            return true;
+            if (substitutionValue is ODataValue oDataValue) {
+                result = oDataValue;
+                return true;
+            } else {
+                result = new ODataValue(substitutionValue);
+                return true;
+            }
         }
 
         if (this.Value is { } fallbackValue) {
@@ -395,7 +392,7 @@ public sealed record ODataVariable(
     }
 
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
-        throw new NotImplementedException();
+        this.AppendValue(target);
     }
 
     public bool AppendValue(in UriTemplateTarget target) {
@@ -450,7 +447,8 @@ public sealed record ODataValue(object? Value) : IODataValue {
             }
             return true;
         } else {
-            return false;
+            throw new NotSupportedException(this.Value.GetType().Name);
+            // return false;
         }
     }
 }

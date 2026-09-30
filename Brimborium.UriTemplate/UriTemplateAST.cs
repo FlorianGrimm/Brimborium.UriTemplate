@@ -21,10 +21,10 @@ public sealed record class UriTemplateASTSequence(
 }
 
 public abstract record class UriTemplateASTSequenceChild() {
-    public virtual bool Expand(
+    public abstract bool Expand(
         IReadOnlyDictionary<string, object?> substitutions,
         in UriTemplateTarget target
-        ) => false;
+        );
 }
 
 public sealed record class UriTemplateASTConstant(
@@ -133,7 +133,7 @@ public sealed record class UriTemplateASTPlaceholder(
         IReadOnlyDictionary<string, object?> substitutions,
         in UriTemplateTarget target
         ) {
-        
+
         if (!substitutions.TryGetValue(this.Name, out var value)) {
             return false;
         } else {
@@ -142,21 +142,28 @@ public sealed record class UriTemplateASTPlaceholder(
             }
             SubstitutionType substType;
             {
-                if (value is string stringValue) {
-                    if (string.IsNullOrEmpty(stringValue)) {
-                        return false;
-                    } else { 
-                        substType = SubstitutionType.String;
-                    }
-                } else if (UriTemplateTarget.IsNativeType(value)) {
-                    substType = SubstitutionType.String;
-                } else if (value is IUriTemplateValue uriTemplateValue) {
+                if (value is IUriTemplateValue uriTemplateValue) {
                     if (uriTemplateValue.TryGetValue(substitutions, out var nextValue)) {
                         substType = SubstitutionType.Value;
                         value = nextValue;
                     } else {
                         return false;
                     }
+                }
+                if (value is ODataValue oDataValue) {
+                    if (oDataValue.Value is IList or IDictionary) {
+                        value = oDataValue.Value;
+                    }
+                }
+
+                if (value is string stringValue) {
+                    if (string.IsNullOrEmpty(stringValue)) {
+                        return false;
+                    } else {
+                        substType = SubstitutionType.String;
+                    }
+                } else if (UriTemplateTarget.IsNativeType(value)) {
+                    substType = SubstitutionType.String;
                 } else if (value is IList list) {
                     if (0 == list.Count) {
                         return false;
@@ -169,6 +176,8 @@ public sealed record class UriTemplateASTPlaceholder(
                     } else {
                         substType = SubstitutionType.Dictionary;
                     }
+                } else if (value is IODataValue iODataValue) {
+                    substType = SubstitutionType.Value;
                 } else {
                     throw new ArgumentException($"Illegal class passed as substitution, found {value.GetType()} at name:{this.Name}");
                 }

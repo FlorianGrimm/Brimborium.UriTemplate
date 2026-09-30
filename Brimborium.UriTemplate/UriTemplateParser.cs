@@ -43,13 +43,6 @@ public static class UriTemplateParser {
                         if (toMaxCharBuffer && maxCharBuffer is { } && maxCharBuffer.Length == 0) {
                             throw new ArgumentException($"Empty prefix after colon at col:{pos}");
                         }
-                        //bool expanded = ExpandToken(op, token.ToString(), composite, GetMaxChar(maxCharBuffer, i), firstToken, substitutions, result, i);
-                        //if (expanded && firstToken) {
-                        //    firstToken = false;
-                        //}
-                        //if (firstToken) {
-                        //UriTemplateASTOperator uriTemplateASTOperator = new();
-                        //}
 
                         UriTemplateASTPlaceholder item = new(
                             Name: CheckVarname(token.ToStringAndClear(), pos),

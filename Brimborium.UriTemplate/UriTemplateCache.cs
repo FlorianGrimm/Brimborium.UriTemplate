@@ -60,6 +60,18 @@ public sealed class UriTemplateCache {
         return result;
     }
 
+    public string Expand(
+            UriTemplateASTSequence template,
+            IReadOnlyDictionary<string, object?> substitutions
+        ) {
+        var output = this._StringBuilderPool.Get();
+        UriTemplateTarget target = new(output);
+        _ = template.Expand(substitutions, target);
+        var result = output.ToStringAndClear();
+        this._StringBuilderPool.Return(output);
+        return result;
+    }
+
     public UriTemplateASTSequence Parse(
         string template
         ) {

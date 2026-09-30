@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage()]
 public class UriTemplate {
     // Public API
     public static string Expand(string template, IReadOnlyDictionary<string, object> substitutions) {
