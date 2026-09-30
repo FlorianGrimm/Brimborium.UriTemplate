@@ -1,4 +1,9 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Packages.props" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+  </Folder>
   <Project Path="Brimborium.UriTemplate.Benchmark/Brimborium.UriTemplate.Benchmark.csproj" Id="54902449-082e-45f1-887c-43b42beda7f5" />
   <Project Path="Brimborium.UriTemplate.Test/Brimborium.UriTemplate.Test.csproj" />
   <Project Path="Brimborium.UriTemplate/Brimborium.UriTemplate.csproj" />

@@ -221,26 +221,6 @@ public sealed record ODataList(
     }
 
     public bool AppendValue(in UriTemplateTarget target) {
-#if false
-        bool result = true;
-        bool isSeperatedAppened = true;
-        foreach (var item in ListItem) {
-            if (isSeperatedAppened) {
-                //
-            } else { 
-                target.Append(this.Seperation);
-                isSeperatedAppened = true;
-            }
-            var subResult = item.AppendValue(target);
-            if (subResult) {
-                // OK
-                isSeperatedAppened = false;
-            } else {
-                result = false;
-            }
-        }
-        return result;
-#endif
         bool result = true;
         int lastSeperate = -1;
         foreach (var item in ListItem) {
