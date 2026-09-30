@@ -21,7 +21,7 @@ public readonly struct UriTemplateTarget(
     //TODO: or TimeOnly or DateOnly or DateTime or DateTimeOffset
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string ConvertNativeTypes(object? value) {
+    public static string? ConvertNativeTypes(object? value) {
         return value switch {
             null => string.Empty,
             string strValue => strValue,
@@ -32,7 +32,8 @@ public readonly struct UriTemplateTarget(
             double number => number.ToString(System.Globalization.CultureInfo.InvariantCulture),
             decimal number => number.ToString(System.Globalization.CultureInfo.InvariantCulture),
             //TODO: or TimeOnly or DateOnly or DateTime or DateTimeOffset
-            _ => throw new ArgumentException($"Illegal class passed as substitution, found {value.GetType()}"),
+            _ => null
+            //_ => throw new ArgumentException($"Illegal class passed as substitution, found {value.GetType()}"),
         };
     }
 
@@ -40,12 +41,12 @@ public readonly struct UriTemplateTarget(
         bool first = true;
         foreach (object innerValue in value) {
             if (first) {
-                this.AddValue(astOperator, token, innerValue, maxChar);
+                this.AddScalarValue(astOperator, token, innerValue, maxChar);
                 first = false;
             } else {
                 if (composite) {
                     astOperator.AddSeparator(this.Output);
-                    this.AddValue(astOperator, token, innerValue, maxChar);
+                    this.AddScalarValue(astOperator, token, innerValue, maxChar);
                 } else {
                     _ = this.Output.Append(',');
                     this.AddValueElement(astOperator, token, innerValue, maxChar);
@@ -69,7 +70,7 @@ public readonly struct UriTemplateTarget(
                 _ = this.Output.Append('=');
             } else {
                 if (first) {
-                    this.AddValue(astOperator, token, (string)v.Key, maxChar);
+                    this.AddScalarValue(astOperator, token, (string)v.Key, maxChar);
                 } else {
                     _ = this.Output.Append(',');
                     this.AddValueElement(astOperator, token, (string)v.Key, maxChar);
@@ -82,7 +83,7 @@ public readonly struct UriTemplateTarget(
         return !first;
     }
 
-    public void AddValue(UriTemplateASTOperation astOperator, string token, object value, int maxChar) {
+    public void AddScalarValue(UriTemplateASTOperation astOperator, string token, object value, int maxChar) {
         if (astOperator.Operator is { } op) {
             switch (op) {
                 case UriTemplateASTOperator.Plus:
@@ -127,22 +128,38 @@ public readonly struct UriTemplateTarget(
     }
 
     public void AddValueInner(string? prefix, object? value, int maxChar, bool replaceReserved) {
-        string stringValue = ConvertNativeTypes(value);
-        this.AddValueText(prefix, stringValue, maxChar, replaceReserved);
+        if (value is null) {
+            this.AddValueText(prefix, string.Empty, maxChar, replaceReserved);
+            return;
+        }
+
+        {
+            var stringValue = ConvertNativeTypes(value);
+            if (stringValue is { }) {
+                this.AddValueText(prefix, stringValue, maxChar, replaceReserved);
+            } else if (value is IUriTemplateValue uriTemplateValue) {
+                uriTemplateValue.AppendValue(prefix, maxChar, replaceReserved, this);
+            } else {
+                throw new ArgumentException($"Illegal class passed as substitution, found {value.GetType()}");
+            }
+        }
+
     }
 
     public void AddValueText(string? prefix, string stringValue, int maxChar, bool replaceReserved) {
         int codePointCount = 0;
+        bool foundSurrogate = false;
         for (int ci = 0; ci < stringValue.Length; ci++) {
             if (char.IsHighSurrogate(stringValue[ci])
                 && (ci + 1 < stringValue.Length)
                 && char.IsLowSurrogate(stringValue[ci + 1])) {
                 ci++;
+                foundSurrogate = true;
             }
             codePointCount++;
         }
         int max = (maxChar != -1) ? Math.Min(maxChar, codePointCount) : codePointCount;
-        _ = this.Output.EnsureCapacity(max * 2); // hint to SB
+        _ = this.Output.EnsureCapacity(this.Output.Length + max * 2); // hint to SB
         bool toReserved = false;
 
         if (max > 0 && prefix != null) {
@@ -159,7 +176,7 @@ public readonly struct UriTemplateTarget(
             }
 
             string toAppend;
-            if (IsSurrogate(character)) {
+            if (foundSurrogate && IsSurrogate(character)) {
                 toAppend = Uri.EscapeDataString(char.ConvertFromUtf32(char.ConvertToUtf32(stringValue, pos)));
                 pos++; // skip the low surrogate
             } else if (replaceReserved || IsUcschar(character) || IsIprivate(character)) {
@@ -197,7 +214,7 @@ public readonly struct UriTemplateTarget(
                     } else {
                         _ = this.Output.Append("%25");
                         // only if !replaceReserved
-                        _ = this.Output.Append(original.AsSpan(1,2));
+                        _ = this.Output.Append(original.AsSpan(1, 2));
                     }
                     toReserved = false;
                 }
@@ -220,6 +237,101 @@ public readonly struct UriTemplateTarget(
                 .Append(_ReservedBuffer.ToString(1, _ReservedBuffer.Length - 1));
         }
     }
+
+    public void AddODataValue(string stringValue) {
+        int codePointCount = 0;
+        bool foundSurrogate = false;
+        for (int ci = 0; ci < stringValue.Length; ci++) {
+            if (char.IsHighSurrogate(stringValue[ci])
+                && (ci + 1 < stringValue.Length)
+                && char.IsLowSurrogate(stringValue[ci + 1])) {
+                ci++;
+                foundSurrogate = true;
+            }
+            codePointCount++;
+        }
+        int max = codePointCount;
+        _ = this.Output.EnsureCapacity(this.Output.Length + max * 2); // hint to SB
+        bool toReserved = false;
+
+        int charCount = 0;
+        for (int pos = 0; pos < stringValue.Length && charCount < max; pos++) {
+            char character = stringValue[pos];
+
+            if (character == '%') {
+                _ = _ReservedBuffer.Clear();
+                toReserved = true;
+            }
+
+            string toAppend;
+            if (foundSurrogate && IsSurrogate(character)) {
+                toAppend = Uri.EscapeDataString(char.ConvertFromUtf32(char.ConvertToUtf32(stringValue, pos)));
+                pos++; // skip the low surrogate
+            } else if (IsUcschar(character) || IsIprivate(character)) {
+                toAppend = Uri.EscapeDataString(character.ToString());
+            } else {
+                if (toReserved) {
+                    toAppend = character.ToString();
+                } else {
+                    if (character == ' ') {
+                        _ = this.Output.Append("%20");
+                    } else if (character == '%') {
+                        _ = this.Output.Append("%25");
+                    } else if (character == '\'') {
+                        _ = this.Output.Append("\'\'");
+                    } else {
+                        _ = this.Output.Append(character);
+                    }
+                    continue;
+                }
+            }
+
+            if (toReserved) {
+                _ = _ReservedBuffer.Append(toAppend);
+
+                if (_ReservedBuffer.Length == 3) {
+                    bool isEncoded = false;
+
+                    var original = _ReservedBuffer.ToStringAndClear();
+                    try {
+                        isEncoded = !original.Equals(Uri.UnescapeDataString(original));
+                    } catch (Exception) {
+                        // ignore
+                    }
+
+                    if (isEncoded) {
+                        _ = this.Output.Append(original);
+                    } else {
+                        _ = this.Output.Append("%25");
+                        // only if !replaceReserved
+                        _ = this.Output.Append(original.AsSpan(1, 2));
+                    }
+                    toReserved = false;
+                }
+            } else {
+                if (character == ' ') {
+                    _ = this.Output.Append("%20");
+                } else if (character == '%') {
+                    _ = this.Output.Append("%25");
+                } else if (character == '\'') {
+                    _ = this.Output.Append("\'\'");
+                } else {
+                    _ = this.Output.Append(toAppend);
+                }
+            }
+
+            charCount++;
+        }
+
+        if (toReserved) {
+            _ = this.Output
+                .Append("%25")
+                .Append(_ReservedBuffer.ToString(1, _ReservedBuffer.Length - 1));
+        }
+    }
+
+    public override string ToString()
+        => this.Output.ToString();
 
     private static bool IsSurrogate(char cp)
         => (cp >= 0xD800 && cp <= 0xDFFF);
