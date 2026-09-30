@@ -14,28 +14,30 @@ using System.Diagnostics;
 namespace Brimborium.UriTemplate.Benchmark;
 
 public class Program {
+    public const int OuterLoopCount = 10_000;
+    public const int InnerLoopCount = 1_000;
 
     public static void Main(string[] args) {
         //var summaries
-#if false
+#if true
         _ = BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
 #else
-        CommonBenchmark commonBenchmark= new CommonBenchmark();
+        CommonBenchmark commonBenchmark = new CommonBenchmark();
         commonBenchmark.BrimboriumBenchmark();
 
-        const int LoopCount = 10_000_000;
-        var start=Stopwatch.GetTimestamp();
-        for (int i = 0; i < LoopCount; i++) { 
+        var start = Stopwatch.GetTimestamp();
+        for (int i = 0; i < OuterLoopCount; i++) {
             commonBenchmark.BrimboriumBenchmark();
         }
         var e = Stopwatch.GetElapsedTime(start);
+        const int LoopCount = InnerLoopCount * OuterLoopCount;
         System.Console.WriteLine($"{e.TotalNanoseconds / LoopCount} ns");
         // 5006999800 ns
 #endif
     }
 }
 
-[MemoryDiagnoser]
+/* [MemoryDiagnoser] */
 public class CommonBenchmark {
     public readonly Dictionary<string, object?> Substitutions;
     public readonly string[] ListTemplate;
@@ -55,9 +57,20 @@ public class CommonBenchmark {
 
     [Benchmark(Baseline = true)]
     public void StdBenchmark() {
-        foreach (var template in this.ListTemplate) {
-            var act = global::Std.UriTemplate.Expand(template, Substitutions);
-            if (act is not { Length: > 0 }) { throw new Exception(); }
+        var listTemplate = this.ListTemplate;
+        {
+            for (int innerIdx = 0; innerIdx < listTemplate.Length; innerIdx++) {
+                var template = listTemplate[innerIdx];
+                var act = global::Std.UriTemplate.Expand(template, Substitutions);
+                if (act is not { Length: > 0 }) { throw new Exception(); }
+            }
+        }
+        for (int loopIdx = 0; loopIdx < Program.InnerLoopCount; loopIdx++) {
+            for (int innerIdx = 0; innerIdx < listTemplate.Length; innerIdx++) {
+                var template = listTemplate[innerIdx];
+                var act = global::Std.UriTemplate.Expand(template, Substitutions);
+                if (act is not { Length: > 0 }) { throw new Exception(); }
+            }
         }
     }
 
@@ -66,9 +79,13 @@ public class CommonBenchmark {
 
     [Benchmark]
     public void BrimboriumBenchmark() {
-        foreach (var template in this.ListTemplate) {
-            var act = _Cache.Expand(template, Substitutions);
-            if (act is not { Length: > 0 }) { throw new Exception(); }
+        var listTemplate = this.ListTemplate;
+        for (int loopIdx = 0; loopIdx < Program.InnerLoopCount; loopIdx++) {
+            for (int innerIdx = 0; innerIdx < listTemplate.Length; innerIdx++) {
+                var template = listTemplate[innerIdx];
+                var act = _Cache.Expand(template, Substitutions);
+                if (act is not { Length: > 0 }) { throw new Exception(); }
+            }
         }
     }
 }

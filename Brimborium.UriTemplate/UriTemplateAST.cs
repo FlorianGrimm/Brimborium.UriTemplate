@@ -8,14 +8,6 @@ public sealed record class UriTemplateASTSequence(
     params UriTemplateASTSequenceChild[] ListChild
 ) {
 
-    //public void Expand(
-    //    IReadOnlyDictionary<string, object?> substitutions,
-    //    StringBuilder output
-    //    ) {
-    //    UriTemplateTarget target = new(output);
-    //    _ = this.Expand(substitutions, target);
-    //}
-
     public bool Expand(
         IReadOnlyDictionary<string, object?> substitutions,
         UriTemplateTarget target) {
