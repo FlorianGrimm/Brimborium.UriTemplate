@@ -24,7 +24,7 @@ public readonly struct UriTemplateTarget(
     /// <param name="value">The character to append.</param>
     /// <returns>The output builder, allowing further append operations.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public StringBuilder Append(char value) => this.Output.Append(value);
+    internal StringBuilder Append(char value) => this.Output.Append(value);
 
     /// <summary>
     /// Appends a string to the URI output.
@@ -32,7 +32,7 @@ public readonly struct UriTemplateTarget(
     /// <param name="value">The string to append.</param>
     /// <returns>The output builder, allowing further append operations.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public StringBuilder Append(string value) => this.Output.Append(value);
+    internal StringBuilder Append(string value) => this.Output.Append(value);
 
     /// <summary>
     /// Determines whether a value uses one of the built-in scalar types
@@ -44,7 +44,7 @@ public readonly struct UriTemplateTarget(
     /// otherwise, <see langword="false"/>.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsNativeType(object value) =>
+    internal static bool IsNativeType(object value) =>
         value is string or bool or int or long or float or double or decimal
             or TimeOnly or DateOnly or DateTime or DateTimeOffset;
 
@@ -54,7 +54,7 @@ public readonly struct UriTemplateTarget(
     /// <param name="value">the value to convert</param>
     /// <returns>the value formated</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string? ConvertNativeTypes(object? value) {
+    internal static string? ConvertNativeTypes(object? value) {
         return value switch {
             null => string.Empty,
             string strValue => strValue,
@@ -83,7 +83,7 @@ public readonly struct UriTemplateTarget(
     /// <param name="maxChar">Maximum code points for each scalar value, or <c>-1</c> for no limit.</param>
     /// <param name="composite">Whether each list item is expanded as a separate composite value.</param>
     /// <returns><see langword="true"/> if the list contains at least one item.</returns>
-    public bool AddListValue(UriTemplateASTOperation astOperator, string token, IList value, int maxChar, bool composite) {
+    internal bool AddListValue(UriTemplateASTOperation astOperator, string token, IList value, int maxChar, bool composite) {
         bool first = true;
         foreach (object innerValue in value) {
             if (first) {
@@ -113,7 +113,7 @@ public readonly struct UriTemplateTarget(
     /// <param name="composite">Whether dictionary entries use composite key/value formatting.</param>
     /// <returns><see langword="true"/> if the dictionary contains at least one entry.</returns>
     /// <exception cref="ArgumentException"><paramref name="maxChar"/> is not <c>-1</c>.</exception>
-    public bool AddDictionaryValue(UriTemplateASTOperation astOperator, string token, IDictionary value, int maxChar, bool composite) {
+    internal bool AddDictionaryValue(UriTemplateASTOperation astOperator, string token, IDictionary value, int maxChar, bool composite) {
         bool first = true;
         if (maxChar != -1) {
             throw new ArgumentException("Value trimming is not allowed on Dictionaries");
@@ -148,7 +148,7 @@ public readonly struct UriTemplateTarget(
     /// <param name="token">The variable name associated with the value.</param>
     /// <param name="value">The scalar substitution to append.</param>
     /// <param name="maxChar">Maximum Unicode code points to emit, or <c>-1</c> for no limit.</param>
-    public void AddScalarValue(UriTemplateASTOperation astOperator, string token, object value, int maxChar) {
+    internal void AddScalarValue(UriTemplateASTOperation astOperator, string token, object value, int maxChar) {
         if (astOperator.Operator is { } op) {
             switch (op) {
                 case UriTemplateASTOperator.Plus:
@@ -181,7 +181,7 @@ public readonly struct UriTemplateTarget(
     /// <param name="token">The variable name associated with the element.</param>
     /// <param name="value">The element to append.</param>
     /// <param name="maxChar">Maximum Unicode code points to emit, or <c>-1</c> for no limit.</param>
-    public void AddValueElement(UriTemplateASTOperation astOperator, string token, object? value, int maxChar) {
+    internal void AddValueElement(UriTemplateASTOperation astOperator, string token, object? value, int maxChar) {
         if (astOperator.Operator is { } op) {
             switch (op) {
                 case UriTemplateASTOperator.Plus:
@@ -212,7 +212,7 @@ public readonly struct UriTemplateTarget(
     /// otherwise, preserve reserved characters.
     /// </param>
     /// <exception cref="ArgumentException">The value is not a supported substitution type.</exception>
-    public void AddValueInner(string? prefix, object? value, int maxChar, bool replaceReserved) {
+    internal void AddValueInner(string? prefix, object? value, int maxChar, bool replaceReserved) {
         if (value is null) {
             this.AddValueText(prefix, string.Empty, maxChar, replaceReserved);
             return;
@@ -242,7 +242,7 @@ public readonly struct UriTemplateTarget(
     /// <see langword="true"/> to percent-encode reserved characters;
     /// otherwise, preserve reserved characters.
     /// </param>
-    public void AddValueText(string? prefix, string stringValue, int maxChar, bool replaceReserved) {
+    internal void AddValueText(string? prefix, string stringValue, int maxChar, bool replaceReserved) {
         int codePointCount = 0;
         bool foundSurrogate = false;
         for (int ci = 0; ci < stringValue.Length; ci++) {
@@ -338,7 +338,7 @@ public readonly struct UriTemplateTarget(
     /// Appends a string as an OData string literal value, escaping URI-sensitive
     /// characters and doubling apostrophes.
     /// </summary>
-    /// <param name="stringValue">The string contents to append.</param>
+    /// <param name="stringValue">The string contents to append after formatted.</param>
     public void AddODataValue(string stringValue) {
         int codePointCount = 0;
         bool foundSurrogate = false;
@@ -380,8 +380,10 @@ public readonly struct UriTemplateTarget(
                         _ = this.Output.Append("%25");
                     } else if (character == '\'') {
                         _ = this.Output.Append("\'\'");
-                    } else {
+                    } else if (char.IsAsciiLetter(character) || char.IsAsciiDigit(character)){
                         _ = this.Output.Append(character);
+                    } else {
+                        _ = this.Output.Append(Uri.EscapeDataString(character.ToString()));
                     }
                     continue;
                 }
