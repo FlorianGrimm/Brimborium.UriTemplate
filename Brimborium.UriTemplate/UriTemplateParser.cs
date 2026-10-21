@@ -4,7 +4,19 @@ using System.Text;
 
 namespace Brimborium.UriTemplate;
 
+/// <summary>
+/// Parses URI-template strings into abstract syntax trees.
+/// </summary>
 public static class UriTemplateParser {
+    /// <summary>
+    /// Parses a URI template into a sequence of literal text and expressions.
+    /// </summary>
+    /// <param name="template">The URI template to parse.</param>
+    /// <returns>The parsed template syntax tree.</returns>
+    /// <exception cref="ArgumentException">
+    /// The template contains invalid syntax, an invalid variable name, or an
+    /// invalid prefix modifier.
+    /// </exception>
     public static UriTemplateASTSequence Parse(string template) {
         List<UriTemplateASTSequenceChild> resultListItem = [];
         List<UriTemplateASTPlaceholder>? listPlaceholder = default;
@@ -174,6 +186,16 @@ public static class UriTemplateParser {
         return result;
     }
 
+    /// <summary>
+    /// Validates a URI-template variable name.
+    /// </summary>
+    /// <param name="token">The variable name to validate.</param>
+    /// <param name="col">The template column used in validation error messages.</param>
+    /// <returns>The validated variable name.</returns>
+    /// <exception cref="ArgumentException">
+    /// The name starts or ends with a period, contains consecutive periods, or
+    /// contains an invalid percent-encoding sequence.
+    /// </exception>
     public static string CheckVarname(string token, int col) {
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
         if (token.StartsWith('.') || token.EndsWith('.'))

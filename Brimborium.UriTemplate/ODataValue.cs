@@ -2,14 +2,29 @@
 
 namespace Brimborium.UriTemplate;
 
+/// <summary>
+/// allows a value to formatted and append to the target.
+/// </summary>
 public interface IODataValue {
+    /// <summary>
+    /// add the value to the target.Output
+    /// </summary>
+    /// <param name="target">target for url</param>
+    /// <returns>true if successfull</returns>
     bool AppendValue(in UriTemplateTarget target);
 }
 
 
+/// <summary>
+/// Wraps an OData value expression and supports resolving any URI-template
+/// variables contained in that expression.
+/// </summary>
+/// <param name="Value">The expression value to resolve or append.</param>
 public sealed record class ODataExpression(
     IODataValue Value
     ) : IUriTemplateValue, IODataValue {
+
+    /// <inheritdoc/>
     public bool TryGetValue(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result
@@ -31,19 +46,26 @@ public sealed record class ODataExpression(
         }
     }
 
+    /// <inheritdoc/>
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
         this.AppendValue(target);
     }
 
+    /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         return this.Value.AppendValue(target);
     }
-
 }
 
+/// <summary>
+/// Represents an OData expression whose URI-template variables have been
+/// resolved.
+/// </summary>
+/// <param name="Value">The resolved expression value to append.</param>
 public sealed record class ODataExpressionResolved(
     IODataValue Value
     ) : IUriTemplateValue, IODataValue {
+    /// <inheritdoc/>
     public bool TryGetValue(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result
@@ -54,28 +76,39 @@ public sealed record class ODataExpressionResolved(
         }
     }
 
+    /// <inheritdoc/>
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
         if (prefix is { Length: > 0 }) { throw new ArgumentException("should be null", nameof(prefix)); }
         this.AppendValue(target);
     }
 
+    /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         return this.Value.AppendValue(target);
     }
 
 }
 
+/// <summary>
+/// Represents an OData field name, appended as-is rather than as a quoted
+/// OData literal.
+/// </summary>
+/// <param name="Value">The field name.</param>
 public sealed record ODataFieldName(string Value) : IUriTemplateValue, IODataValue {
+    /// <inheritdoc/>
     public bool TryGetValue(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result) {
         result = this;
         return true;
     }
+
+    /// <inheritdoc/>
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
         this.AppendValue(target);
     }
 
+    /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         var output = target.Output;
         target.Append(this.Value);
@@ -83,17 +116,25 @@ public sealed record ODataFieldName(string Value) : IUriTemplateValue, IODataVal
     }
 }
 
+/// <summary>
+/// Represents text that is appended verbatim to the target.
+/// </summary>
+/// <param name="Value">The raw text to append.</param>
 public sealed record ODataRawString(string Value) : IUriTemplateValue, IODataValue {
+    /// <inheritdoc/>
     public bool TryGetValue(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result) {
         result = this;
         return true;
     }
+
+    /// <inheritdoc/>
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
         this.AppendValue(target);
     }
 
+    /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         var output = target.Output;
         target.Append(this.Value);
@@ -101,17 +142,25 @@ public sealed record ODataRawString(string Value) : IUriTemplateValue, IODataVal
     }
 }
 
+/// <summary>
+/// Represents an OData literal, which is appended using OData value escaping.
+/// </summary>
+/// <param name="Value">The literal text.</param>
 public sealed record ODataConstant(string Value) : IUriTemplateValue, IODataValue {
+    /// <inheritdoc/>
     public bool TryGetValue(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result) {
         result = this;
         return true;
     }
+
+    /// <inheritdoc/>
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
         this.AppendValue(target);
     }
 
+    /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         var output = target.Output;
         target.AddODataValue(this.Value);
@@ -119,11 +168,17 @@ public sealed record ODataConstant(string Value) : IUriTemplateValue, IODataValu
     }
 }
 
+/// <summary>
+/// Represents an ordered sequence of OData values appended consecutively.
+/// </summary>
+/// <param name="Name">The sequence name retained when resolving its items.</param>
+/// <param name="ListItem">The items in the sequence.</param>
 public sealed record ODataSequence(
     string Name,
     IODataValue[] ListItem
     ) : IUriTemplateValue, IODataValue {
 
+    /// <inheritdoc/>
     public bool TryGetValue(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result
@@ -155,10 +210,12 @@ public sealed record ODataSequence(
         }
     }
 
+    /// <inheritdoc/>
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
         this.AppendValue(target);
     }
 
+    /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         bool result = true;
         foreach (var item in ListItem) {
@@ -173,12 +230,19 @@ public sealed record ODataSequence(
     }
 }
 
+/// <summary>
+/// Represents a delimited list of OData values.
+/// </summary>
+/// <param name="Name">The list name retained when resolving its items.</param>
+/// <param name="Seperation">The text placed between successfully appended items.</param>
+/// <param name="ListItem">The items in the list.</param>
 public sealed record ODataList(
     string Name,
     string Seperation,
     IODataValue[] ListItem
     ) : IUriTemplateValue, IODataValue {
 
+    /// <inheritdoc/>
     public bool TryGetValue(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result
@@ -210,10 +274,12 @@ public sealed record ODataList(
         }
     }
 
+    /// <inheritdoc/>
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
         this.AppendValue(target);
     }
 
+    /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         bool result = true;
         int lastSeperate = -1;
@@ -234,12 +300,20 @@ public sealed record ODataList(
     }
 }
 
+/// <summary>
+/// Represents a binary OData operation with a left operand, operator name,
+/// and right operand.
+/// </summary>
+/// <param name="Left">The left operand.</param>
+/// <param name="Name">The operation name.</param>
+/// <param name="Right">The right operand.</param>
 public sealed record ODataOperation(
     IODataValue Left,
     string Name,
     IODataValue Right
     ) : IUriTemplateValue, IODataValue {
 
+    /// <inheritdoc/>
     public bool TryGetValue(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result) {
@@ -287,10 +361,12 @@ public sealed record ODataOperation(
         }
     }
 
+    /// <inheritdoc/>
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
         this.AppendValue(target);
     }
 
+    /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         bool result = true;
         var subResultLeft = this.Left.AppendValue(target);
@@ -302,11 +378,17 @@ public sealed record ODataOperation(
     }
 }
 
+/// <summary>
+/// Represents an OData function call with an ordered set of arguments.
+/// </summary>
+/// <param name="Name">The function name.</param>
+/// <param name="ListItem">The function arguments.</param>
 public sealed record ODataFunction(
     string Name,
     IODataValue[] ListItem
     ) : IUriTemplateValue, IODataValue {
 
+    /// <inheritdoc/>
     public bool TryGetValue(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result) {
@@ -340,10 +422,12 @@ public sealed record ODataFunction(
         }
     }
 
+    /// <inheritdoc/>
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
         this.AppendValue(target);
     }
 
+    /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         bool result = true;
         _ = target.Append(this.Name).Append('(');
@@ -364,11 +448,18 @@ public sealed record ODataFunction(
     }
 }
 
+/// <summary>
+/// Represents a URI-template variable used as an OData value, with an optional
+/// fallback value.
+/// </summary>
+/// <param name="Name">The substitution key to resolve.</param>
+/// <param name="Value">The value to use when the substitution is not supplied.</param>
 public sealed record ODataVariable(
     string Name,
     ODataValue? Value
     ) : IUriTemplateValue, IODataValue {
 
+    /// <inheritdoc/>
     public bool TryGetValue(
         IReadOnlyDictionary<string, object?> substitutions,
         [MaybeNullWhen(false)] out IODataValue result) {
@@ -391,16 +482,23 @@ public sealed record ODataVariable(
         return false;
     }
 
+    /// <inheritdoc/>
     public void AppendValue(string? prefix, int maxChar, bool replaceReserved, in UriTemplateTarget target) {
         this.AppendValue(target);
     }
 
+    /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         return false;
     }
 }
 
+/// <summary>
+/// Wraps a CLR value and appends it in its OData literal representation.
+/// </summary>
+/// <param name="Value">The value to format as an OData literal.</param>
 public sealed record ODataValue(object? Value) : IODataValue {
+    /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         var output = target.Output;
         if (this.Value is null) {

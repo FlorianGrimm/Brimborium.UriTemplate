@@ -7,9 +7,16 @@ using System.Text;
 
 namespace Brimborium.UriTemplate;
 
+/// <summary>
+/// Caches parsed URI templates and expands them using pooled string builders.
+/// </summary>
 public sealed class UriTemplateCache {
     private static UriTemplateCache? _Default;
 
+    /// <summary>
+    /// Gets or sets the shared default cache used by the static
+    /// <see cref="UriTemplate"/> methods.
+    /// </summary>
     [System.Diagnostics.CodeAnalysis.AllowNull]
     public static UriTemplateCache Default {
         get {
@@ -33,6 +40,9 @@ public sealed class UriTemplateCache {
 
     private readonly DefaultObjectPool<StringBuilder> _StringBuilderPool;
 
+    /// <summary>
+    /// Initializes a cache with a default pool for expansion string builders.
+    /// </summary>
     public UriTemplateCache() : this(
         new DefaultObjectPool<StringBuilder>(
             new StringBuilderPooledObjectPolicy {
@@ -42,12 +52,22 @@ public sealed class UriTemplateCache {
         ) {
     }
 
+    /// <summary>
+    /// Initializes a cache using the specified string builder pool.
+    /// </summary>
+    /// <param name="stringBuilderPool">The pool used to obtain and return expansion buffers.</param>
     public UriTemplateCache(
         DefaultObjectPool<StringBuilder> stringBuilderPool
         ) {
         this._StringBuilderPool = stringBuilderPool;
     }
 
+    /// <summary>
+    /// Parses and expands a URI template using the supplied substitutions.
+    /// </summary>
+    /// <param name="template">The URI template to expand.</param>
+    /// <param name="substitutions">Values to use for variables in the template.</param>
+    /// <returns>The expanded URI template.</returns>
     public string Expand(
             string template,
             IReadOnlyDictionary<string, object?> substitutions
@@ -60,6 +80,12 @@ public sealed class UriTemplateCache {
         return result;
     }
 
+    /// <summary>
+    /// Expands a parsed URI template using the supplied substitutions.
+    /// </summary>
+    /// <param name="template">The parsed template syntax tree to expand.</param>
+    /// <param name="substitutions">Values to use for variables in the template.</param>
+    /// <returns>The expanded URI template.</returns>
     public string Expand(
             UriTemplateASTSequence template,
             IReadOnlyDictionary<string, object?> substitutions
@@ -72,6 +98,11 @@ public sealed class UriTemplateCache {
         return result;
     }
 
+    /// <summary>
+    /// Parses a URI template, returning a cached syntax tree when available.
+    /// </summary>
+    /// <param name="template">The URI template to parse.</param>
+    /// <returns>The parsed template syntax tree.</returns>
     public UriTemplateASTSequence Parse(
         string template
         ) {

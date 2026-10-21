@@ -4,10 +4,24 @@ using System.Text;
 
 namespace Brimborium.UriTemplate;
 
+/// <summary>
+/// Represents a parsed URI template as an ordered sequence of constants and
+/// template operations.
+/// </summary>
+/// <param name="ListChild">The constant and operation nodes in template order.</param>
 public sealed record class UriTemplateASTSequence(
     params UriTemplateASTSequenceChild[] ListChild
 ) {
 
+    /// <summary>
+    /// Expands the sequence using the supplied variable substitutions.
+    /// </summary>
+    /// <param name="substitutions">Values supplied for variables in the template.</param>
+    /// <param name="target">The target to which the expanded template is appended.</param>
+    /// <returns>
+    /// <see langword="true"/> if at least one variable value was expanded;
+    /// otherwise, <see langword="false"/>.
+    /// </returns>
     public bool Expand(
         IReadOnlyDictionary<string, object?> substitutions,
         UriTemplateTarget target) {
@@ -20,16 +34,33 @@ public sealed record class UriTemplateASTSequence(
     }
 }
 
+/// <summary>
+/// Defines a node in a parsed URI template sequence.
+/// </summary>
 public abstract record class UriTemplateASTSequenceChild() {
+    /// <summary>
+    /// Expands this node using the supplied variable substitutions.
+    /// </summary>
+    /// <param name="substitutions">Values supplied for variables in the template.</param>
+    /// <param name="target">The target to which this node's output is appended.</param>
+    /// <returns>
+    /// <see langword="true"/> if a variable value was expanded;
+    /// otherwise, <see langword="false"/>.
+    /// </returns>
     public abstract bool Expand(
         IReadOnlyDictionary<string, object?> substitutions,
         in UriTemplateTarget target
         );
 }
 
+/// <summary>
+/// Represents literal text in a parsed URI template.
+/// </summary>
+/// <param name="Value">The literal text to append during expansion.</param>
 public sealed record class UriTemplateASTConstant(
         string Value
     ) : UriTemplateASTSequenceChild() {
+    /// <inheritdoc/>
     public override bool Expand(
         IReadOnlyDictionary<string, object?> substitutions,
         in UriTemplateTarget target
@@ -39,21 +70,42 @@ public sealed record class UriTemplateASTConstant(
     }
 }
 
+/// <summary>
+/// Identifies an expansion operator that controls the prefix, separators, and
+/// escaping used for a URI-template expression.
+/// </summary>
 public enum UriTemplateASTOperator {
+    /// <summary>Uses the default expansion behavior.</summary>
     Noop,
+    /// <summary>Uses reserved-character expansion without an operator prefix.</summary>
     Plus,
+    /// <summary>Uses reserved-character expansion with a fragment prefix.</summary>
     Hash,
+    /// <summary>Prefixes values with dots and separates them with dots.</summary>
     Dot,
+    /// <summary>Prefixes values with slashes and separates them with slashes.</summary>
     Slash,
+    /// <summary>Prefixes values with semicolons and separates them with semicolons.</summary>
     Semicolon,
+    /// <summary>Prefixes the expression with a question mark and emits query parameters.</summary>
     Questionmark,
+    /// <summary>Emits additional query parameters separated by ampersands.</summary>
     Ampersand
 }
 
+/// <summary>
+/// Represents a URI-template expression, including its operator and variables.
+/// </summary>
+/// <param name="Operator">The operator controlling this expression's expansion, if any.</param>
+/// <param name="ListPlaceholder">The variables contained in the expression.</param>
 public sealed record class UriTemplateASTOperation(
         UriTemplateASTOperator? Operator,
         params UriTemplateASTPlaceholder[] ListPlaceholder
         ) : UriTemplateASTSequenceChild() {
+    /// <summary>
+    /// Appends the operator's initial prefix, if it defines one.
+    /// </summary>
+    /// <param name="output">The builder receiving the prefix.</param>
     public void AddPrefix(StringBuilder output) {
         if (this.Operator is { } op) {
             switch (op) {
@@ -81,6 +133,10 @@ public sealed record class UriTemplateASTOperation(
         }
     }
 
+    /// <summary>
+    /// Appends the separator used between values for this operator.
+    /// </summary>
+    /// <param name="output">The builder receiving the separator.</param>
     public void AddSeparator(StringBuilder output) {
         if (this.Operator is { } op) {
             switch (op) {
@@ -104,6 +160,7 @@ public sealed record class UriTemplateASTOperation(
         }
     }
 
+    /// <inheritdoc/>
     public override bool Expand(
         IReadOnlyDictionary<string, object?> substitutions,
         in UriTemplateTarget target
@@ -121,12 +178,37 @@ public sealed record class UriTemplateASTOperation(
     }
 }
 
+/// <summary>
+/// Represents a variable within a URI-template expression and its expansion
+/// modifiers.
+/// </summary>
+/// <param name="Name">The variable name used to look up a substitution.</param>
+/// <param name="Composite">
+/// Whether list or dictionary values are expanded as composite values.
+/// </param>
+/// <param name="MaxChar">
+/// Maximum number of Unicode code points emitted for a scalar value, or
+/// <c>-1</c> for no limit.
+/// </param>
 public sealed record class UriTemplateASTPlaceholder(
         string Name,
         bool Composite,
         int MaxChar
         ) {
 
+    /// <summary>
+    /// Expands this variable when a usable substitution is available.
+    /// </summary>
+    /// <param name="astOperator">The enclosing expression's expansion operator.</param>
+    /// <param name="first">
+    /// Whether this is the first variable in the expression that produces output.
+    /// </param>
+    /// <param name="substitutions">Values supplied for variables in the template.</param>
+    /// <param name="target">The target to which the expanded value is appended.</param>
+    /// <returns>
+    /// <see langword="true"/> if a value was expanded; otherwise,
+    /// <see langword="false"/>.
+    /// </returns>
     public bool Expand(
         UriTemplateASTOperation astOperator,
         bool first,
