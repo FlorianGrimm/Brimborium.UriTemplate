@@ -263,6 +263,14 @@ public readonly struct UriTemplateTarget(
         }
 
         int charCount = 0;
+        int startLength = this.Output.Length;
+        //int maxLength;
+        //if (maxChar < 0) {
+        //    maxLength = int.MaxValue;
+        //} else {
+        //    maxLength = startLength + maxChar;
+        //}
+        //for (int pos = 0; pos < stringValue.Length && this.Output.Length < maxLength; pos++) {
         for (int pos = 0; pos < stringValue.Length && charCount < max; pos++) {
             char character = stringValue[pos];
 
@@ -283,10 +291,13 @@ public readonly struct UriTemplateTarget(
                 } else {
                     if (character == ' ') {
                         _ = this.Output.Append("%20");
+                        charCount++;
                     } else if (character == '%') {
                         _ = this.Output.Append("%25");
+                        charCount++;
                     } else {
                         _ = this.Output.Append(character);
+                        charCount++;
                     }
                     continue;
                 }
@@ -307,24 +318,28 @@ public readonly struct UriTemplateTarget(
 
                     if (isEncoded) {
                         _ = this.Output.Append(original);
+                        charCount++;
                     } else {
                         _ = this.Output.Append("%25");
                         // only if !replaceReserved
                         _ = this.Output.Append(original.AsSpan(1, 2));
+                        charCount++;
                     }
                     toReserved = false;
                 }
             } else {
                 if (character == ' ') {
                     _ = this.Output.Append("%20");
+                    charCount++;
                 } else if (character == '%') {
                     _ = this.Output.Append("%25");
+                    charCount++;
                 } else {
                     _ = this.Output.Append(toAppend);
+                    charCount++;
                 }
             }
 
-            charCount++;
         }
 
         if (toReserved) {
@@ -380,7 +395,7 @@ public readonly struct UriTemplateTarget(
                         _ = this.Output.Append("%25");
                     } else if (character == '\'') {
                         _ = this.Output.Append("\'\'");
-                    } else if (char.IsAsciiLetter(character) || char.IsAsciiDigit(character)){
+                    } else if (char.IsAsciiLetter(character) || char.IsAsciiDigit(character)) {
                         _ = this.Output.Append(character);
                     } else {
                         _ = this.Output.Append(Uri.EscapeDataString(character.ToString()));

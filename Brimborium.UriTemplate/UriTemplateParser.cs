@@ -56,11 +56,17 @@ public static class UriTemplateParser {
                             throw new ArgumentException($"Empty prefix after colon at col:{pos}");
                         }
 
+                        var name = CheckVarname(token.ToStringAndClear(), pos);
+                        int maxChar;
+                        if (maxCharBuffer is null) {
+                            maxChar = -1;
+                        } else {
+                            maxChar = GetMaxChar(maxCharBuffer.ToStringAndClear(), pos);
+                        }
                         UriTemplateASTPlaceholder item = new(
-                            Name: CheckVarname(token.ToStringAndClear(), pos),
+                            Name: name,
                             Composite: composite,
-                            MaxChar: (maxCharBuffer is null) ? -1 : GetMaxChar(maxCharBuffer.ToStringAndClear(), pos)
-                            );
+                            MaxChar: maxChar);
                         (listPlaceholder ??= []).Add(item);
 
                         UriTemplateASTOperation uriTemplateASTOperator = new(
@@ -82,11 +88,18 @@ public static class UriTemplateParser {
                         if (toMaxCharBuffer && maxCharBuffer is { } && maxCharBuffer.Length == 0) {
                             throw new ArgumentException($"Empty prefix after colon at col:{pos}");
                         }
+                        var name = CheckVarname(token.ToStringAndClear(), pos);
+                        int maxChar;
+                        if (maxCharBuffer is null) {
+                            maxChar = -1;
+                        } else {
+                            maxChar = GetMaxChar(maxCharBuffer.ToStringAndClear(), pos);
+                        }
                         UriTemplateASTPlaceholder item = new(
                             //Operator: op.GetValueOrDefault(Operator.NO_OP),
-                            Name: CheckVarname(token.ToStringAndClear(), pos),
+                            Name: name,
                             Composite: composite,
-                            MaxChar: (maxCharBuffer is null) ? -1 : GetMaxChar(maxCharBuffer.ToStringAndClear(), pos)
+                            MaxChar: maxChar
                             );
                         (listPlaceholder ??= []).Add(item);
                         composite = false;
@@ -197,6 +210,9 @@ public static class UriTemplateParser {
     /// contains an invalid percent-encoding sequence.
     /// </exception>
     public static string CheckVarname(string token, int col) {
+        if (string.IsNullOrEmpty(token)) {
+            throw new ArgumentException($"Variable name cannot be empty at col:{col}");
+        }
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
         if (token.StartsWith('.') || token.EndsWith('.'))
 #else
