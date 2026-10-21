@@ -4,6 +4,7 @@ namespace Brimborium.UriTemplate;
 
 /// <summary>
 /// Represents text that is appended verbatim to the target.
+/// So do your homework and make sure that the text is properly escaped for OData values.
 /// </summary>
 /// <param name="Value">The raw text to append.</param>
 public sealed record ODataRawString(string Value) : IUriTemplateValue, IODataValue {
