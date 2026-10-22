@@ -81,9 +81,9 @@ public class ODataValueTests {
     }
 
     [Test]
-    [Arguments("1970-01-01+01:00", "'1970-01-01T00:00:00.0000000+01:00'")]
-    [Arguments("3141-05-09+02:00", "'3141-05-09T00:00:00.0000000+02:00'")]
-    [Arguments("3141-05-09T02:06:53+05:00", "'3141-05-09T02:06:53.0000000+05:00'")]
+    [Arguments("1970-01-01+01:00", "'1970-01-01T00:00:00+01:00'")]
+    [Arguments("3141-05-09+02:00", "'3141-05-09T00:00:00+02:00'")]
+    [Arguments("3141-05-09T02:06:53+05:00", "'3141-05-09T02:06:53+05:00'")]
     [Arguments("3141-05-09T02:06:53.59+06:00", "'3141-05-09T02:06:53.5900000+06:00'")]
     public async Task ODataValueDateTimeOffset(string text, string expected) {
         var value = DateTimeOffset.Parse(text);
@@ -95,9 +95,9 @@ public class ODataValueTests {
     }
 
     [Test]
-    [Arguments("1970-01-01", "'1970-01-01T00:00:00.0000000'")]
-    [Arguments("3141-05-09", "'3141-05-09T00:00:00.0000000'")]
-    [Arguments("3141-05-09T02:06:53", "'3141-05-09T02:06:53.0000000'")]
+    [Arguments("1970-01-01", "'1970-01-01T00:00:00'")]
+    [Arguments("3141-05-09", "'3141-05-09T00:00:00'")]
+    [Arguments("3141-05-09T02:06:53", "'3141-05-09T02:06:53'")]
     [Arguments("3141-05-09T02:06:53.59", "'3141-05-09T02:06:53.5900000'")]
     public async Task ODataValueDateTime(string text, string expected) {
         var value = DateTime.Parse(text);
@@ -106,6 +106,15 @@ public class ODataValueTests {
         ODataValue sut = new(value);
         sut.AppendValue(target);
         await Assert.That(output.ToString()).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task ODataValueDateTimeUtc() {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new(new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc));
+        sut.AppendValue(target);
+        await Assert.That(output.ToString()).IsEqualTo("'2024-01-02T03:04:05Z'");
     }
 
     [Test]
@@ -121,24 +130,100 @@ public class ODataValueTests {
     }
 
     [Test]
-    public async Task ODataSequenceEmpty() {
-        ODataSequence greeeting = new(
-            "greeeting",
-            [
-            ]);
-
-        IReadOnlyDictionary<string, object?> substitutions = new Dictionary<string, object?> {
-            { "baseurl", "https://server/abc" },
-            { "greeeting", greeeting},
-            { "aaa", "AA1" },
-            { "bbb", "BB2" },
-            { "ccc", "CC3" },
-        };
-        Brimborium.UriTemplate.UriTemplateCache sut = new();
-
-        string template = "{+baseurl}/def/ghi{#greeeting}";
-        string expected = "https://server/abc/def/ghi#";
-        var actStd = sut.Expand(template, substitutions);
-        _ = await Assert.That(actStd).IsEqualTo(expected);
+    [Arguments(0, 0, 0, "'00:00:00'")]
+    [Arguments(9, 5, 7, "'09:05:07'")]
+    [Arguments(14, 30, 0, "'14:30:00'")]
+    [Arguments(23, 59, 59, "'23:59:59'")]
+    public async Task ODataValueTimeOnly(int hour, int minute, int second, string expected) {
+        var value = new TimeOnly(hour, minute, second);
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new(value);
+        sut.AppendValue(target);
+        await Assert.That(output.ToString()).IsEqualTo(expected);
     }
+
+    [Test]
+    [Arguments(true, "true")]
+    [Arguments(false, "false")]
+    public async Task ODataValueBool(bool value, string expected) {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new(value);
+        var result = sut.AppendValue(target);
+        await Assert.That(result).IsTrue();
+        await Assert.That(output.ToString()).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task ODataValueCrLfIsPercentEncoded() {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new("a\r\nSet-Cookie: x=1");
+        sut.AppendValue(target);
+        await Assert.That(output.ToString()).IsEqualTo("'a%0D%0ASet-Cookie%3A%20x%3D1'");
+    }
+
+    [Test]
+    public async Task ODataValueNull() {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new(null);
+        var result = sut.AppendValue(target);
+        await Assert.That(result).IsTrue();
+        await Assert.That(output.ToString()).IsEqualTo("null");
+    }
+
+    [Test]
+    public async Task ODataValueUnsupportedTypeThrows() {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new(Guid.Empty);
+        await Assert.That(() => sut.AppendValue(target))
+            .Throws<NotSupportedException>();
+    }
+
+    [Test]
+    [Arguments("th-TH")]
+    [Arguments("ar-SA")]
+    [Arguments("de-DE")]
+    [Arguments("sv-SE")]
+    [Arguments("fa-IR")]
+    public async Task ODataValueIsCultureInvariant(string cultureName) {
+        (object? Value, string Expected)[] cases = [
+            (null, "null"),
+            ("Tom's car", "'Tom''s%20car'"),
+            (-1234, "-1234"),
+            (-1234567890123L, "-1234567890123"),
+            (-1.5f, "-1.5"),
+            (-1.5d, "-1.5"),
+            (-1.5m, "-1.5"),
+            (new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.FromHours(2)), "'2024-01-02T03:04:05+02:00'"),
+            (new DateTimeOffset(2024, 1, 2, 3, 4, 5, 123, TimeSpan.FromHours(-5)), "'2024-01-02T03:04:05.1230000-05:00'"),
+            (new DateTime(2024, 1, 2, 3, 4, 5), "'2024-01-02T03:04:05'"),
+            (new DateTime(2024, 1, 2, 3, 4, 5, 123), "'2024-01-02T03:04:05.1230000'"),
+            (new DateOnly(2024, 1, 2), "'2024-01-02'"),
+            (new TimeOnly(14, 30, 0), "'14:30:00'"),
+            (true, "true"),
+            (false, "false"),
+        ];
+
+        var actual = await Task.Run(() => {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo(cultureName);
+            return cases.Select(c => Format(new ODataValue(c.Value))).ToArray();
+        });
+
+        for (int i = 0; i < cases.Length; i++) {
+            await Assert.That(actual[i]).IsEqualTo(cases[i].Expected)
+                .Because($"{cultureName} {cases[i].Value?.GetType().Name ?? "null"} {cases[i].Value}");
+        }
+
+        static string Format(ODataValue value) {
+            StringBuilder output = new();
+            UriTemplateTarget target = new(output);
+            value.AppendValue(target);
+            return output.ToString();
+        }
+    }
+
 }

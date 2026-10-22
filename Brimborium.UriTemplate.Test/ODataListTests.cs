@@ -72,4 +72,29 @@ public class ODataListTests {
         var actStd = sut.Expand(template, substitutions);
         _ = await Assert.That(actStd).IsEqualTo(expected);
     }
+
+    [Test]
+    public async Task ODataList1FollowedByMissing() {
+        ODataList select = new(
+            "$select",
+            ",",
+            [
+                new ODataFieldName("columnABC"),
+                new ODataVariable("missing", null)
+            ]);
+
+        IReadOnlyDictionary<string, object?> substitutions = new Dictionary<string, object?> {
+            { "baseurl", "https://server/abc" },
+            { "$select", select},
+            { "aaa", "AA1" },
+            { "bbb", "BB2" },
+            { "ccc", "CC3" },
+        };
+        Brimborium.UriTemplate.UriTemplateCache sut = new();
+
+        string template = "{+baseurl}/def/ghi{?$select,$filter}";
+        string expected = "https://server/abc/def/ghi?$select=columnABC";
+        var actStd = sut.Expand(template, substitutions);
+        _ = await Assert.That(actStd).IsEqualTo(expected);
+    }
 }

@@ -103,6 +103,7 @@ public class UriTemplateTargetTests {
     [Test]
     public async Task ConvertNativeTypesDateTimeTest() {
         await Assert.That(UriTemplateTarget.ConvertNativeTypes(new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc))).IsEqualTo("2024-01-02T03:04:05Z");
+        await Assert.That(UriTemplateTarget.ConvertNativeTypes(new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Unspecified))).IsEqualTo("2024-01-02T03:04:05");
     }
 
     [Test]
@@ -113,5 +114,56 @@ public class UriTemplateTargetTests {
     [Test]
     public async Task ConvertNativeTypesUnsupportedTypeTest() {
         await Assert.That(UriTemplateTarget.ConvertNativeTypes(new object())).IsNull();
+    }
+
+    [Test]
+    [Arguments("{keys}")]
+    [Arguments("{keys*}")]
+    [Arguments("{?keys}")]
+    [Arguments("{?keys*}")]
+    public async Task AddDictionaryValueNonStringKeyThrows(string template) {
+        IReadOnlyDictionary<string, object?> substitutions = new Dictionary<string, object?> {
+            { "keys", new Dictionary<int, string> { { 1, "a" }, { 2, "b" } } },
+        };
+        UriTemplateCache sut = new();
+        await Assert.That(() => sut.Expand(template, substitutions))
+            .Throws<ArgumentException>()
+            .WithMessageContaining("Dictionary key must be a string");
+    }
+
+    [Test]
+    [Arguments("th-TH")]
+    [Arguments("ar-SA")]
+    [Arguments("de-DE")]
+    [Arguments("sv-SE")]
+    [Arguments("fa-IR")]
+    public async Task ConvertNativeTypesIsCultureInvariant(string cultureName) {
+        (object? Value, string Expected)[] cases = [
+            (null, ""),
+            ("Tom's car", "Tom's car"),
+            (true, "true"),
+            (false, "false"),
+            (-1234, "-1234"),
+            (-1234567890123L, "-1234567890123"),
+            (-1.5f, "-1.5"),
+            (-1.5d, "-1.5"),
+            (-1.5m, "-1.5"),
+            (new TimeOnly(14, 30, 0), "14:30:00"),
+            (new DateOnly(2024, 1, 2), "2024-01-02"),
+            (new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc), "2024-01-02T03:04:05Z"),
+            (new DateTime(2024, 1, 2, 3, 4, 5, 123, DateTimeKind.Utc), "2024-01-02T03:04:05.1230000Z"),
+            (new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.FromHours(2)), "2024-01-02T03:04:05+02:00"),
+            (new DateTimeOffset(2024, 1, 2, 3, 4, 5, 123, TimeSpan.FromHours(-5)), "2024-01-02T03:04:05.1230000-05:00"),
+        ];
+
+        var actual = await Task.Run(() => {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo(cultureName);
+            return cases.Select(c => UriTemplateTarget.ConvertNativeTypes(c.Value)).ToArray();
+        });
+
+        for (int i = 0; i < cases.Length; i++) {
+            await Assert.That(actual[i]).IsEqualTo(cases[i].Expected)
+                .Because($"{cultureName} {cases[i].Value?.GetType().Name ?? "null"} {cases[i].Value}");
+        }
     }
 }

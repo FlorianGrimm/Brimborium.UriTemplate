@@ -25,6 +25,38 @@ public class UriTemplateParserTests {
     }
 
     [Test]
+    [Arguments("{a\r\nb}")]
+    [Arguments("{a\rb}")]
+    [Arguments("{a\nb}")]
+    [Arguments("{?x,a\r\nb}")]
+    public async Task CrLfInVariableNameIsRejected(string template) {
+        await Assert.That(() => UriTemplateParser.Parse(template))
+            .Throws<ArgumentException>();
+    }
+
+    [Test]
+    [Arguments("a\0b")]
+    [Arguments("a\tb")]
+    [Arguments("a\u001Fb")]
+    [Arguments("\r\n")]
+    [Arguments("{a\tb}")]
+    [Arguments("{a\0b}")]
+    [Arguments("{?x\u001F}")]
+    [Arguments("a\u007Fb")]
+    [Arguments("{a\u007Fb}")]
+    public async Task ControlCharacterIsRejected(string template) {
+        await Assert.That(() => UriTemplateParser.Parse(template))
+            .Throws<ArgumentException>()
+            .WithMessageContaining("Control character");
+    }
+
+    [Test]
+    public async Task CharacterAboveControlRangeIsAccepted() {
+        var ast = UriTemplateParser.Parse("a b{x}");
+        _ = await Assert.That(ast.ListChild).IsNotEmpty();
+    }
+
+    [Test]
     public async Task SpecialCasesTest() {
         {
             var ast = UriTemplateParser.Parse("{keys:1}");
