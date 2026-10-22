@@ -24,7 +24,7 @@ public sealed record ODataFieldName(string Value) : IUriTemplateValue, IODataVal
     /// <inheritdoc/>
     public bool AppendValue(in UriTemplateTarget target) {
         var output = target.Output;
-        target.Append(this.Value);
+        target.AddODataValue(this.Value);
         return true;
     }
 }

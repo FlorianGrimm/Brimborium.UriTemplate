@@ -34,6 +34,9 @@ public static class UriTemplateParser {
 
         for (int pos = 0; pos < template.Length; pos++) {
             char character = template[pos];
+            if (character < 32 || character == 0x7F) {
+                throw new ArgumentException($"Control character 0x{(int)character:X2} is not allowed at col:{pos}");
+            }
             switch (character) {
                 case '{':
                     if (toToken) {
