@@ -15,6 +15,16 @@ public class UriTemplateParserTests {
     }
 
     [Test]
+    public async Task UnterminatedTokensAreRejected() {
+        await Assert.That(() => UriTemplateParser.Parse("foo{bar"))
+            .Throws<ArgumentException>();
+        await Assert.That(() => UriTemplateParser.Parse("{x"))
+            .Throws<ArgumentException>();
+        await Assert.That(() => UriTemplateParser.Parse("{?x,y"))
+            .Throws<ArgumentException>();
+    }
+
+    [Test]
     public async Task SpecialCasesTest() {
         {
             var ast = UriTemplateParser.Parse("{keys:1}");
@@ -66,7 +76,7 @@ public class UriTemplateParserTests {
                 var template = jsonTemplate.GetString() ?? throw new Exception($"template is null {name} {filenameFQN}");
                 var expected = ConvertValue(jsonExpected);
                 if (expected is string stringExpected) {
-                    if (template == "{+path:6}/here") { 
+                    if (template == "{+path:6}/here") {
                     }
                     var ast = UriTemplateParser.Parse(template);
                     var output = new StringBuilder();

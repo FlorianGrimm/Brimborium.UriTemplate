@@ -165,10 +165,8 @@ public static class UriTemplateParser {
                         new UriTemplateASTConstant(tail));
                 }
             } else {
-                if (0 < tail.Length) {
-                    throw new ArgumentException(
-                        $"Unterminated token. {tail}");
-                }
+                throw new ArgumentException(
+                    $"Unterminated token at col:{template.Length}");
             }
         }
 

@@ -64,10 +64,10 @@ public readonly struct UriTemplateTarget(
             float number => number.ToString(System.Globalization.CultureInfo.InvariantCulture),
             double number => number.ToString(System.Globalization.CultureInfo.InvariantCulture),
             decimal number => number.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            TimeOnly timeOnly => timeOnly.ToString("hh:mm:ss"),
+            TimeOnly timeOnly => timeOnly.ToString("HH:mm:ss"),
             DateOnly dateOnly => dateOnly.ToString("yyyy-MM-dd"),
-            DateTime dateTime => dateTime.ToString("O"),
-            DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("O"),
+            DateTime dateTime => dateTime.Nanosecond==0 ? dateTime.ToString("yyyy-MM-ddTHH:mm:ssZ") : dateTime.ToString("O"),
+            DateTimeOffset dateTimeOffset => dateTimeOffset.Nanosecond == 0 ? dateTimeOffset.ToString("yyyy-MM-ddTHH:mm:sszzz") : dateTimeOffset.ToString("O"),
             _ => null
             //_ => throw new ArgumentException($"Illegal class passed as substitution, found {value.GetType()}"),
         };

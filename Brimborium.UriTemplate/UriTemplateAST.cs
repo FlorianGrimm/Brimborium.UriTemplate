@@ -228,6 +228,9 @@ public sealed record class UriTemplateASTPlaceholder(
                     if (uriTemplateValue.TryGetValue(substitutions, out var nextValue)) {
                         substType = SubstitutionType.Value;
                         value = nextValue;
+                        if (value is null) {
+                            return false;
+                        }
                     } else {
                         return false;
                     }
@@ -238,12 +241,8 @@ public sealed record class UriTemplateASTPlaceholder(
                     }
                 }
 
-                if (value is string stringValue) {
-                    if (string.IsNullOrEmpty(stringValue)) {
-                        return false;
-                    } else {
-                        substType = SubstitutionType.String;
-                    }
+                if (value is string) {
+                    substType = SubstitutionType.String;
                 } else if (UriTemplateTarget.IsNativeType(value)) {
                     substType = SubstitutionType.String;
                 } else if (value is IList list) {

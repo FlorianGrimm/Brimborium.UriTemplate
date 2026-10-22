@@ -6,6 +6,7 @@ public class ODataValueTests {
     [Arguments("%", "'%25'")]
     [Arguments("Tom's car", "'Tom''s%20car'")]
     [Arguments("Tom & Jerry", "'Tom%20%26%20Jerry'")]
+    [Arguments("Tom & Jerry #1 + x", "'Tom%20%26%20Jerry%20%231%20%2B%20x'")]
     public async Task ODataValueStringTest(string value, string expected) {
         StringBuilder output = new();
         UriTemplateTarget target = new(output);
