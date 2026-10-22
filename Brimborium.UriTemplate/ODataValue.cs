@@ -17,11 +17,10 @@ public sealed record ODataValue(object? Value) : IODataValue {
             _ = output.Append('\'');
             return true;
         } else if (this.Value is int intValue) {
-            _ = target.Append(intValue.ToString());
-
+            _ = target.Append(intValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
             return true;
         } else if (this.Value is long longValue) {
-            _ = target.Append(longValue.ToString());
+            _ = target.Append(longValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
             return true;
         } else if (this.Value is float floatValue) {
             _ = target.Append(floatValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -33,16 +32,30 @@ public sealed record ODataValue(object? Value) : IODataValue {
             _ = target.Append(decimalValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
             return true;
         } else if (this.Value is DateTimeOffset dateTimeOffsetValue) {
-            _ = target.Append($"'{dateTimeOffsetValue:O}'");
+            if ((dateTimeOffsetValue.Ticks % 10000000) == 0) {
+                var txt= dateTimeOffsetValue.ToString("yyyy-MM-ddTHH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
+                _ = target.Append($"'{txt}'");
+            } else {
+                var txt = dateTimeOffsetValue.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+                _ = target.Append($"'{txt}'");
+            }
             return true;
         } else if (this.Value is DateTime dateTimeValue) {
-            _ = target.Append($"'{dateTimeValue:O}'");
+            if ((dateTimeValue.Ticks % 10000000) == 0) {
+                var txt = dateTimeValue.ToString("yyyy-MM-ddTHH:mm:ssK", System.Globalization.CultureInfo.InvariantCulture);
+                _ = target.Append($"'{txt}'");
+            } else { 
+                var txt = dateTimeValue.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+                _ = target.Append($"'{txt}'");
+            }
             return true;
         } else if (this.Value is DateOnly dateOnlyValue) {
-            _ = target.Append($"'{dateOnlyValue:yyyy-MM-dd}'");
+            var txt = dateOnlyValue.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            _ = target.Append($"'{txt}'");
             return true;
         } else if (this.Value is TimeOnly timeOnlyValue) {
-            _ = target.Append($"'{timeOnlyValue:hh:mm:ss}'");
+            var txt = timeOnlyValue.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+            _ = target.Append($"'{txt}'");
             return true;
         } else if (this.Value is bool boolValue) {
             if (boolValue) {

@@ -64,10 +64,10 @@ public readonly struct UriTemplateTarget(
             float number => number.ToString(System.Globalization.CultureInfo.InvariantCulture),
             double number => number.ToString(System.Globalization.CultureInfo.InvariantCulture),
             decimal number => number.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            TimeOnly timeOnly => timeOnly.ToString("HH:mm:ss"),
-            DateOnly dateOnly => dateOnly.ToString("yyyy-MM-dd"),
-            DateTime dateTime => dateTime.Nanosecond==0 ? dateTime.ToString("yyyy-MM-ddTHH:mm:ssZ") : dateTime.ToString("O"),
-            DateTimeOffset dateTimeOffset => dateTimeOffset.Nanosecond == 0 ? dateTimeOffset.ToString("yyyy-MM-ddTHH:mm:sszzz") : dateTimeOffset.ToString("O"),
+            TimeOnly timeOnly => timeOnly.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
+            DateOnly dateOnly => dateOnly.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            DateTime dateTime => ((dateTime.Ticks % 10000000) == 0) ? dateTime.ToString("yyyy-MM-ddTHH:mm:ssK", System.Globalization.CultureInfo.InvariantCulture) : dateTime.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            DateTimeOffset dateTimeOffset => ((dateTimeOffset.Ticks % 10000000) == 0) ? dateTimeOffset.ToString("yyyy-MM-ddTHH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture) : dateTimeOffset.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
             _ => null
             //_ => throw new ArgumentException($"Illegal class passed as substitution, found {value.GetType()}"),
         };
@@ -123,14 +123,23 @@ public readonly struct UriTemplateTarget(
                 if (!first) {
                     astOperator.AddSeparator(this.Output);
                 }
-                this.AddValueElement(astOperator, token, (string)v.Key, maxChar);
+                if (v.Key is not string key) {
+                    throw new ArgumentException($"Dictionary key must be a string, found {v.Key?.GetType()}");
+                }
+                this.AddValueElement(astOperator, token, key, maxChar);
                 _ = this.Output.Append('=');
             } else {
                 if (first) {
-                    this.AddScalarValue(astOperator, token, (string)v.Key, maxChar);
+                    if (v.Key is not string key) {
+                        throw new ArgumentException($"Dictionary key must be a string, found {v.Key?.GetType()}");
+                    }
+                    this.AddScalarValue(astOperator, token, key, maxChar);
                 } else {
+                    if (v.Key is not string key) {
+                        throw new ArgumentException($"Dictionary key must be a string, found {v.Key?.GetType()}");
+                    }
                     _ = this.Output.Append(',');
-                    this.AddValueElement(astOperator, token, (string)v.Key, maxChar);
+                    this.AddValueElement(astOperator, token, key, maxChar);
                 }
                 _ = this.Output.Append(',');
             }
@@ -263,14 +272,6 @@ public readonly struct UriTemplateTarget(
         }
 
         int charCount = 0;
-        int startLength = this.Output.Length;
-        //int maxLength;
-        //if (maxChar < 0) {
-        //    maxLength = int.MaxValue;
-        //} else {
-        //    maxLength = startLength + maxChar;
-        //}
-        //for (int pos = 0; pos < stringValue.Length && this.Output.Length < maxLength; pos++) {
         for (int pos = 0; pos < stringValue.Length && charCount < max; pos++) {
             char character = stringValue[pos];
 
@@ -283,7 +284,14 @@ public readonly struct UriTemplateTarget(
             if (foundSurrogate && IsSurrogate(character)) {
                 toAppend = Uri.EscapeDataString(char.ConvertFromUtf32(char.ConvertToUtf32(stringValue, pos)));
                 pos++; // skip the low surrogate
-            } else if (replaceReserved || IsUcschar(character) || IsIprivate(character)) {
+            } else if (replaceReserved || IsNotAllowedInUri(character) || IsUcschar(character) || IsIprivate(character)) {
+                if (toReserved) {
+                    // the pending "%x" is not a valid percent-encoding; emit it as literal "%25x"
+                    charCount += _ReservedBuffer.Length;
+                    _ = this.Output.Append("%25").Append(_ReservedBuffer.ToString(1, _ReservedBuffer.Length - 1));
+                    _ = _ReservedBuffer.Clear();
+                    toReserved = false;
+                }
                 toAppend = Uri.EscapeDataString(character.ToString());
             } else {
                 if (toReserved) {
@@ -460,6 +468,10 @@ public readonly struct UriTemplateTarget(
 
     private static bool IsIprivate(char cp)
         => (0xE000 <= cp && cp <= 0xF8FF);
+
+    private static bool IsNotAllowedInUri(char cp)
+        => cp < 0x20 || cp == 0x7F
+        || cp is '"' or '<' or '>' or '\\' or '^' or '`' or '{' or '|' or '}';
 
     private static bool IsUcschar(char cp)
         => (0xA0 <= cp && cp <= 0xD7FF)
