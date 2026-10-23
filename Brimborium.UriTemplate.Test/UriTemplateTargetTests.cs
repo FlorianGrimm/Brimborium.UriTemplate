@@ -49,6 +49,29 @@ public class UriTemplateTargetTests {
             await Assert.That(output.ToString()).IsEqualTo("a%2520c");
         }
     }
+
+    [Test]
+    [Arguments("", false)]
+    [Arguments("", true)]
+    [Arguments("a b,c/d?e#f", false)]
+    [Arguments("a b,c/d?e#f", true)]
+    [Arguments("%41%zz%4%", false)]
+    [Arguments("%41%zz%4%", true)]
+    [Arguments("\uD83D\uDE00x\uD800y\uDE00", false)]
+    [Arguments("\uD83D\uDE00x\uD800y\uDE00", true)]
+    [Arguments("é\uE000<>\"{}|\\^`\r\n", false)]
+    [Arguments("é\uE000<>\"{}|\\^`\r\n", true)]
+    public async Task AddValueTextCompleteMatchesMaxCharPath(string value, bool replaceReserved) {
+        StringBuilder complete = new();
+        new UriTemplateTarget(complete).AddValueText("=", value, -1, replaceReserved);
+
+        StringBuilder withMaxChar = new();
+        new UriTemplateTarget(withMaxChar).AddValueText("=", value, 9999, replaceReserved);
+
+        await Assert.That(complete.ToString()).IsEqualTo(withMaxChar.ToString());
+        await Assert.That(complete.ToString().StartsWith('=')).IsEqualTo(value.Length > 0);
+    }
+
     [Test]
     [Arguments("a b", "a%20b")]
     [Arguments("a,b", "a%2Cb")]

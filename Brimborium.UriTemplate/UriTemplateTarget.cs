@@ -306,6 +306,50 @@ public readonly struct UriTemplateTarget(
     /// otherwise, preserve reserved characters.
     /// </param>
     internal void AddValueText(string? prefix, string stringValue, int maxChar, bool replaceReserved) {
+        if (maxChar == -1) {
+            this.AddValueTextComplete(prefix, stringValue, replaceReserved);
+        } else {
+            this.AddValueTextWithMaxChar(prefix, stringValue, maxChar, replaceReserved);
+        }
+    }
+
+    /// <summary>
+    /// Appends the whole text after applying the requested URI escaping,
+    /// without counting code points.
+    /// </summary>
+    /// <param name="prefix">An optional prefix to append before non-empty text.</param>
+    /// <param name="stringValue">The text to append.</param>
+    /// <param name="replaceReserved">
+    /// <see langword="true"/> to percent-encode reserved characters;
+    /// otherwise, preserve reserved characters.
+    /// </param>
+    private void AddValueTextComplete(string? prefix, string stringValue, bool replaceReserved) {
+        if (stringValue.Length == 0) {
+            return;
+        }
+        _ = this.Output.EnsureCapacity(this.Output.Length + stringValue.Length * 2); // hint to SB
+
+        if (prefix != null) {
+            _ = this.Append(prefix);
+        }
+
+        for (int pos = 0; pos < stringValue.Length; pos++) {
+            pos = AppendValueCharacter(stringValue, pos, replaceReserved, this.Output);
+        }
+    }
+
+    /// <summary>
+    /// Appends at most <paramref name="maxChar"/> code points of the text after
+    /// applying the requested URI escaping.
+    /// </summary>
+    /// <param name="prefix">An optional prefix to append before non-empty text.</param>
+    /// <param name="stringValue">The text to append.</param>
+    /// <param name="maxChar">Maximum Unicode code points to emit.</param>
+    /// <param name="replaceReserved">
+    /// <see langword="true"/> to percent-encode reserved characters;
+    /// otherwise, preserve reserved characters.
+    /// </param>
+    private void AddValueTextWithMaxChar(string? prefix, string stringValue, int maxChar, bool replaceReserved) {
         int codePointCount = 0;
         for (int ci = 0; ci < stringValue.Length; ci++) {
             if (char.IsHighSurrogate(stringValue[ci])
@@ -315,7 +359,7 @@ public readonly struct UriTemplateTarget(
             }
             codePointCount++;
         }
-        int max = (maxChar != -1) ? Math.Min(maxChar, codePointCount) : codePointCount;
+        int max = Math.Min(maxChar, codePointCount);
         _ = this.Output.EnsureCapacity(this.Output.Length + max * 2); // hint to SB
 
         if (max > 0 && prefix != null) {
@@ -324,35 +368,52 @@ public readonly struct UriTemplateTarget(
 
         int charCount = 0;
         for (int pos = 0; pos < stringValue.Length && charCount < max; pos++) {
-            char character = stringValue[pos];
-
-            if (UriCharacterUtility.IsSurrogate(character)) {
-                if (UriCharacterUtility.AppendSurrogate(stringValue, pos, this.Output)) {
-                    pos++; // skip the low surrogate
-                }
-            } else if (character == '%') {
-                // keep a valid pct-encoded triplet when reserved characters are allowed
-                if (!replaceReserved
-                    && pos + 2 < stringValue.Length
-                    && char.IsAsciiHexDigit(stringValue[pos + 1])
-                    && char.IsAsciiHexDigit(stringValue[pos + 2])) {
-                    _ = this.Output.Append(stringValue, pos, 3);
-                    pos += 2;
-                } else {
-                    _ = this.Output.Append("%25");
-                }
-            } else if (replaceReserved
-                || UriCharacterUtility.IsNotAllowedInUri(character)
-                || UriCharacterUtility.IsUcschar(character)
-                || UriCharacterUtility.IsIprivate(character)) {
-                _ = this.Output.Append(Uri.EscapeDataString(character.ToString()));
-            } else if (character == ' ') {
-                _ = this.Output.Append("%20");
-            } else {
-                _ = this.Output.Append(character);
-            }
+            pos = AppendValueCharacter(stringValue, pos, replaceReserved, this.Output);
             charCount++;
         }
+    }
+
+    /// <summary>
+    /// Appends the character (or surrogate pair / pct-encoded triplet) at
+    /// <paramref name="pos"/> after applying the requested URI escaping.
+    /// </summary>
+    /// <param name="stringValue">The text containing the character.</param>
+    /// <param name="pos">The position of the character.</param>
+    /// <param name="replaceReserved">
+    /// <see langword="true"/> to percent-encode reserved characters;
+    /// otherwise, preserve reserved characters.
+    /// </param>
+    /// <returns>The position of the last consumed character.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int AppendValueCharacter(string stringValue, int pos, bool replaceReserved, StringBuilder output) {
+        char character = stringValue[pos];
+
+        if (UriCharacterUtility.IsSurrogate(character)) {
+            if (UriCharacterUtility.AppendSurrogate(stringValue, pos, output)) {
+                pos++; // skip the low surrogate
+            }
+        } else if (character == '%') {
+            // keep a valid pct-encoded triplet when reserved characters are allowed
+            if (!replaceReserved
+                && pos + 2 < stringValue.Length
+                && char.IsAsciiHexDigit(stringValue[pos + 1])
+                && char.IsAsciiHexDigit(stringValue[pos + 2])) {
+                _ = output.Append(stringValue, pos, 3);
+                pos += 2;
+            } else {
+                _ = output.Append("%25");
+            }
+        } else if (replaceReserved
+            || UriCharacterUtility.IsNotAllowedInUri(character)
+            || UriCharacterUtility.IsUcschar(character)
+            || UriCharacterUtility.IsIprivate(character)) {
+            _ = output.Append(Uri.EscapeDataString(character.ToString()));
+        } else if (character == ' ') {
+            _ = output.Append("%20");
+        } else {
+            _ = output.Append(character);
+        }
+        return pos;
     }
 
     /// <summary>
