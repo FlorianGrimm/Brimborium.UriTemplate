@@ -81,10 +81,11 @@ public class ODataValueTests {
     }
 
     [Test]
-    [Arguments("1970-01-01+01:00", "'1970-01-01T00:00:00+01:00'")]
-    [Arguments("3141-05-09+02:00", "'3141-05-09T00:00:00+02:00'")]
-    [Arguments("3141-05-09T02:06:53+05:00", "'3141-05-09T02:06:53+05:00'")]
-    [Arguments("3141-05-09T02:06:53.59+06:00", "'3141-05-09T02:06:53.5900000+06:00'")]
+    [Arguments("1970-01-01+01:00", "'1970-01-01T00:00:00%2B01:00'")]
+    [Arguments("3141-05-09+02:00", "'3141-05-09T00:00:00%2B02:00'")]
+    [Arguments("3141-05-09T02:06:53+05:00", "'3141-05-09T02:06:53%2B05:00'")]
+    [Arguments("3141-05-09T02:06:53.59+06:00", "'3141-05-09T02:06:53.5900000%2B06:00'")]
+    [Arguments("3141-05-09T02:06:53-06:00", "'3141-05-09T02:06:53-06:00'")]
     public async Task ODataValueDateTimeOffset(string text, string expected) {
         var value = DateTimeOffset.Parse(text);
         StringBuilder output = new();
@@ -106,6 +107,47 @@ public class ODataValueTests {
         ODataValue sut = new(value);
         sut.AppendValue(target);
         await Assert.That(output.ToString()).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task ODataValueUnquotedDateTimeLiterals() {
+        (object Value, string Expected)[] cases = [
+            (new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.FromHours(2)), "2024-01-02T03:04:05%2B02:00"),
+            (new DateTimeOffset(2024, 1, 2, 3, 4, 5, 590, TimeSpan.FromHours(-6)), "2024-01-02T03:04:05.5900000-06:00"),
+            (new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc), "2024-01-02T03:04:05Z"),
+            (new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Unspecified), "2024-01-02T03:04:05Z"),
+            (new DateTime(2024, 1, 2, 3, 4, 5, 590, DateTimeKind.Unspecified), "2024-01-02T03:04:05.5900000Z"),
+            (new DateOnly(2024, 1, 2), "2024-01-02"),
+            (new TimeOnly(14, 30, 0), "14:30:00"),
+            (new TimeOnly(1, 2, 3, 456), "01:02:03.4560000"),
+            ("Tom's car", "'Tom''s%20car'"),
+        ];
+        foreach (var (value, expected) in cases) {
+            StringBuilder output = new();
+            UriTemplateTarget target = new(output, ODataConvertOptions.Unquoted);
+            ODataValue sut = new(value);
+            sut.AppendValue(target);
+            await Assert.That(output.ToString()).IsEqualTo(expected).Because(value.GetType().Name);
+        }
+    }
+
+    [Test]
+    public async Task ODataValueUnquotedDateTimeLocalHasOffset() {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output, ODataConvertOptions.Unquoted);
+        ODataValue sut = new(new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Local));
+        sut.AppendValue(target);
+        await Assert.That(output.ToString()).DoesNotContain("'");
+        await Assert.That(output.ToString()).Matches(@"^2024-01-02T03:04:05(%2B|-)\d\d:\d\d$");
+    }
+
+    [Test]
+    public async Task ODataValueDateTimeLocalHasNoRawPlus() {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new(new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Local));
+        sut.AppendValue(target);
+        await Assert.That(output.ToString()).DoesNotContain("+");
     }
 
     [Test]
@@ -144,6 +186,62 @@ public class ODataValueTests {
     }
 
     [Test]
+    public async Task ODataValueTimeOnlyKeepsFractionalSeconds() {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new(new TimeOnly(1, 2, 3, 456));
+        sut.AppendValue(target);
+        await Assert.That(output.ToString()).IsEqualTo("'01:02:03.4560000'");
+    }
+
+    [Test]
+    [Arguments(1e20, "1E%2B20")]
+    [Arguments(1e-20, "1E-20")]
+    [Arguments(double.PositiveInfinity, "INF")]
+    [Arguments(double.NegativeInfinity, "-INF")]
+    [Arguments(double.NaN, "NaN")]
+    public async Task ODataValueDoubleSpecialValues(double value, string expected) {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new(value);
+        sut.AppendValue(target);
+        await Assert.That(output.ToString()).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments(1e20f, "1E%2B20")]
+    [Arguments(float.PositiveInfinity, "INF")]
+    [Arguments(float.NegativeInfinity, "-INF")]
+    [Arguments(float.NaN, "NaN")]
+    public async Task ODataValueFloatSpecialValues(float value, string expected) {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new(value);
+        sut.AppendValue(target);
+        await Assert.That(output.ToString()).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task ODataValueLoneSurrogateIsReplaced() {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new("\uD83D\uDE00\uD800");
+        sut.AppendValue(target);
+        await Assert.That(output.ToString()).IsEqualTo("'%F0%9F%98%80%EF%BF%BD'");
+    }
+
+    [Test]
+    public async Task SemicolonOperatorAddsEqualsForODataValues() {
+        Brimborium.UriTemplate.UriTemplateCache sut = new();
+        _ = await Assert.That(sut.Expand("{;x}", new Dictionary<string, object?> { { "x", new ODataValue("a") } }))
+            .IsEqualTo(";x='a'");
+        _ = await Assert.That(sut.Expand("{;x}", new Dictionary<string, object?> { { "x", new ODataConstant("a") } }))
+            .IsEqualTo(";x=a");
+        _ = await Assert.That(sut.Expand("{;x}", new Dictionary<string, object?> { { "x", new ODataExpression(new ODataFieldName("a")) } }))
+            .IsEqualTo(";x=a");
+    }
+
+    [Test]
     [Arguments(true, "true")]
     [Arguments(false, "false")]
     public async Task ODataValueBool(bool value, string expected) {
@@ -162,6 +260,23 @@ public class ODataValueTests {
         ODataValue sut = new("a\r\nSet-Cookie: x=1");
         sut.AppendValue(target);
         await Assert.That(output.ToString()).IsEqualTo("'a%0D%0ASet-Cookie%3A%20x%3D1'");
+    }
+
+    [Test]
+    [Arguments("%27", "'%2527'")]
+    [Arguments("%'", "'%25'''")]
+    [Arguments("%'a", "'%25''a'")]
+    [Arguments("%&x", "'%25%26x'")]
+    [Arguments("% x", "'%25%20x'")]
+    [Arguments("%#a", "'%25%23a'")]
+    [Arguments("%%41", "'%25%2541'")]
+    [Arguments("%C3%A9", "'%25C3%25A9'")]
+    public async Task ODataValuePercentIsAlwaysEncoded(string value, string expected) {
+        StringBuilder output = new();
+        UriTemplateTarget target = new(output);
+        ODataValue sut = new(value);
+        sut.AppendValue(target);
+        await Assert.That(output.ToString()).IsEqualTo(expected);
     }
 
     [Test]
@@ -198,7 +313,7 @@ public class ODataValueTests {
             (-1.5f, "-1.5"),
             (-1.5d, "-1.5"),
             (-1.5m, "-1.5"),
-            (new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.FromHours(2)), "'2024-01-02T03:04:05+02:00'"),
+            (new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.FromHours(2)), "'2024-01-02T03:04:05%2B02:00'"),
             (new DateTimeOffset(2024, 1, 2, 3, 4, 5, 123, TimeSpan.FromHours(-5)), "'2024-01-02T03:04:05.1230000-05:00'"),
             (new DateTime(2024, 1, 2, 3, 4, 5), "'2024-01-02T03:04:05'"),
             (new DateTime(2024, 1, 2, 3, 4, 5, 123), "'2024-01-02T03:04:05.1230000'"),

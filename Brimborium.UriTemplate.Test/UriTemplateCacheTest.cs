@@ -41,4 +41,32 @@ public class UriTemplateCacheTests {
         var act = sut.Expand(actTemplate, substitutions);
         _ = await Assert.That(act).IsEqualTo("https://server/abc/def/ghi?$filter=AA1,BB2");
     }
+
+    [Test]
+    public async Task ODataDateTimeLiteralStyleIsAppliedByCache() {
+        ODataOperation filter = new(
+            new ODataFieldName("Created"),
+            "gt",
+            new ODataValue(new DateOnly(2024, 1, 2)));
+        IReadOnlyDictionary<string, object?> substitutions = new Dictionary<string, object?> {
+            { "$filter", filter },
+        };
+        string template = "/People{?$filter}";
+
+        Brimborium.UriTemplate.UriTemplateCache quoted = new(
+            options: ODataConvertOptions.Quoted,
+            stringBuilderPool: null);
+        _ = await Assert.That(quoted.Options.ODataDateTimeLiteralStyle).IsEqualTo(ODataDateTimeLiteralStyle.Quoted);
+        _ = await Assert.That(quoted.Expand(template, substitutions))
+            .IsEqualTo("/People?$filter=Created%20gt%20'2024-01-02'");
+
+        Brimborium.UriTemplate.UriTemplateCache unquoted = new(
+            options: ODataConvertOptions.Unquoted,
+            stringBuilderPool: null);
+
+        _ = await Assert.That(unquoted.Expand(template, substitutions))
+            .IsEqualTo("/People?$filter=Created%20gt%202024-01-02");
+        _ = await Assert.That(unquoted.Expand(unquoted.Parse(template), substitutions))
+            .IsEqualTo("/People?$filter=Created%20gt%202024-01-02");
+    }
 }

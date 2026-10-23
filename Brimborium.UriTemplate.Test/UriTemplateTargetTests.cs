@@ -71,49 +71,106 @@ public class UriTemplateTargetTests {
 
     [Test]
     public async Task ConvertNativeTypesLongTest() {
-        await Assert.That(UriTemplateTarget.ConvertNativeTypes(9223372036854775807L)).IsEqualTo("9223372036854775807");
+        await Assert.That(ODataConvert.ConvertValueToString(9223372036854775807L, ODataConvertOptions.Unquoted)).IsEqualTo("9223372036854775807");
     }
 
     [Test]
     public async Task ConvertNativeTypesFloatTest() {
-        await Assert.That(UriTemplateTarget.ConvertNativeTypes(1.5f)).IsEqualTo("1.5");
+        await Assert.That(ODataConvert.ConvertValueToString(1.5f, ODataConvertOptions.Unquoted)).IsEqualTo("1.5");
     }
 
     [Test]
     public async Task ConvertNativeTypesDoubleTest() {
-        await Assert.That(UriTemplateTarget.ConvertNativeTypes(1.25d)).IsEqualTo("1.25");
+        await Assert.That(ODataConvert.ConvertValueToString(1.25d, ODataConvertOptions.Unquoted)).IsEqualTo("1.25");
     }
 
     [Test]
     public async Task ConvertNativeTypesDecimalTest() {
-        await Assert.That(UriTemplateTarget.ConvertNativeTypes(12.34m)).IsEqualTo("12.34");
+        await Assert.That(ODataConvert.ConvertValueToString(12.34m, ODataConvertOptions.Unquoted)).IsEqualTo("12.34");
     }
 
     [Test]
     public async Task ConvertNativeTypesTimeOnlyTest() {
+        await Assert.That(ODataConvert.ConvertValueToString(new TimeOnly(9, 5, 7), ODataConvertOptions.Unquoted)).IsEqualTo("09:05:07");
+        await Assert.That(ODataConvert.ConvertValueToString(new TimeOnly(19, 5, 7), ODataConvertOptions.Unquoted)).IsEqualTo("19:05:07");
+        await Assert.That(ODataConvert.ConvertValueToString(new TimeOnly(1, 2, 3, 456), ODataConvertOptions.Unquoted)).IsEqualTo("01:02:03.4560000");
+    }
+
+    [Test]
+    public async Task UriTemplateTargetConvertNativeTypesTimeOnlyKeepsFractionalSeconds() {
         await Assert.That(UriTemplateTarget.ConvertNativeTypes(new TimeOnly(9, 5, 7))).IsEqualTo("09:05:07");
-        await Assert.That(UriTemplateTarget.ConvertNativeTypes(new TimeOnly(19, 5, 7))).IsEqualTo("19:05:07");
+        await Assert.That(UriTemplateTarget.ConvertNativeTypes(new TimeOnly(1, 2, 3, 456))).IsEqualTo("01:02:03.4560000");
+
+        UriTemplateCache sut = new();
+        var actual = sut.Expand("{t}", new Dictionary<string, object?> { { "t", new TimeOnly(1, 2, 3, 456) } });
+        await Assert.That(actual).IsEqualTo("01%3A02%3A03.4560000");
+    }
+
+    [Test]
+    public async Task UriTemplateTargetConvertNativeTypesPlainValues() {
+        (object? Value, string? Expected)[] cases = [
+            (null, ""),
+            ("a b", "a b"),
+            (true, "true"),
+            (-12, "-12"),
+            (9223372036854775807L, "9223372036854775807"),
+            (1.5f, "1.5"),
+            (float.PositiveInfinity, "Infinity"),
+            (1.25d, "1.25"),
+            (double.NegativeInfinity, "-Infinity"),
+            (double.NaN, "NaN"),
+            (12.34m, "12.34"),
+            (new DateOnly(2024, 1, 2), "2024-01-02"),
+            (new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Unspecified), "2024-01-02T03:04:05"),
+            (new DateTime(2024, 1, 2, 3, 4, 5, 590, DateTimeKind.Unspecified), "2024-01-02T03:04:05.5900000"),
+            (new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc), "2024-01-02T03:04:05Z"),
+            (new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.FromHours(2)), "2024-01-02T03:04:05+02:00"),
+            (new DateTimeOffset(2024, 1, 2, 3, 4, 5, 590, TimeSpan.FromHours(-6)), "2024-01-02T03:04:05.5900000-06:00"),
+            (new object(), null),
+        ];
+        foreach (var (value, expected) in cases) {
+            await Assert.That(UriTemplateTarget.ConvertNativeTypes(value)).IsEqualTo(expected).Because($"{value?.GetType().Name} {value}");
+        }
+
+        UriTemplateCache sut = new();
+        var actual = sut.Expand("{x}", new Dictionary<string, object?> { { "x", new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Unspecified) } });
+        await Assert.That(actual).IsEqualTo("2024-01-02T03%3A04%3A05");
+    }
+
+    [Test]
+    public async Task ODataConvertNullOptionsBehaveLikeQuoted() {
+        var unspecified = new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Unspecified);
+        await Assert.That(ODataConvert.ConvertValueToString(unspecified, null)).IsEqualTo("2024-01-02T03:04:05");
+        await Assert.That(ODataConvert.ConvertValueToString(unspecified, ODataConvertOptions.Quoted)).IsEqualTo("2024-01-02T03:04:05");
+
+        StringBuilder output = new();
+        new ODataValue(new DateOnly(2024, 1, 2)).AppendValue(new UriTemplateTarget(output, null!));
+        await Assert.That(output.ToString()).IsEqualTo("'2024-01-02'");
     }
 
     [Test]
     public async Task ConvertNativeTypesDateOnlyTest() {
-        await Assert.That(UriTemplateTarget.ConvertNativeTypes(new DateOnly(2024, 1, 2))).IsEqualTo("2024-01-02");
+        await Assert.That(ODataConvert.ConvertValueToString(new DateOnly(2024, 1, 2), ODataConvertOptions.Unquoted)).IsEqualTo("2024-01-02");
     }
 
     [Test]
-    public async Task ConvertNativeTypesDateTimeTest() {
-        await Assert.That(UriTemplateTarget.ConvertNativeTypes(new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc))).IsEqualTo("2024-01-02T03:04:05Z");
-        await Assert.That(UriTemplateTarget.ConvertNativeTypes(new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Unspecified))).IsEqualTo("2024-01-02T03:04:05");
+    public async Task ConvertNativeTypesDateTimeTest_Utc() {
+        await Assert.That(ODataConvert.ConvertValueToString(new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc), ODataConvertOptions.Unquoted)).IsEqualTo("2024-01-02T03:04:05Z");
+    }
+
+    [Test]
+    public async Task ConvertNativeTypesDateTimeTest_Unspecified() {
+        await Assert.That(ODataConvert.ConvertValueToString(new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Unspecified), ODataConvertOptions.Unquoted)).IsEqualTo("2024-01-02T03:04:05Z");
     }
 
     [Test]
     public async Task ConvertNativeTypesDateTimeOffsetTest() {
-        await Assert.That(UriTemplateTarget.ConvertNativeTypes(new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.FromHours(2)))).IsEqualTo("2024-01-02T03:04:05+02:00");
+        await Assert.That(ODataConvert.ConvertValueToString(new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.FromHours(2)), ODataConvertOptions.Unquoted)).IsEqualTo("2024-01-02T03:04:05+02:00");
     }
 
     [Test]
     public async Task ConvertNativeTypesUnsupportedTypeTest() {
-        await Assert.That(UriTemplateTarget.ConvertNativeTypes(new object())).IsNull();
+        await Assert.That(ODataConvert.ConvertValueToString(new object(), ODataConvertOptions.Unquoted)).IsNull();
     }
 
     [Test]
@@ -158,7 +215,7 @@ public class UriTemplateTargetTests {
 
         var actual = await Task.Run(() => {
             System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo(cultureName);
-            return cases.Select(c => UriTemplateTarget.ConvertNativeTypes(c.Value)).ToArray();
+            return cases.Select(c => ODataConvert.ConvertValueToString(c.Value, ODataConvertOptions.Unquoted)).ToArray();
         });
 
         for (int i = 0; i < cases.Length; i++) {

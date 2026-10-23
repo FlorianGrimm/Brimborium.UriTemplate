@@ -38,4 +38,19 @@ public class ODataVariableTests {
         _ = await Assert.That(result!.AppendValue(target)).IsTrue();
         _ = await Assert.That(target.Output.ToString()).IsEqualTo("'aa%26bb%3Dcc%2Fdd%3Aee%3Fff%2Cgg'");
     }
+
+    [Test]
+    public async Task ODataVariableKeepsIODataValueSubstitution() {
+        ODataFieldName fieldName = new("Name");
+        ODataVariable sut = new("v", null);
+        IReadOnlyDictionary<string, object?> substitutions = new Dictionary<string, object?> {
+            { "v", fieldName },
+        };
+        var actStd = sut.TryGetValue(substitutions, out var result);
+        _ = await Assert.That(actStd).IsTrue();
+        _ = await Assert.That(result).IsSameReferenceAs(fieldName);
+        var target = new UriTemplateTarget(new StringBuilder());
+        _ = await Assert.That(result!.AppendValue(target)).IsTrue();
+        _ = await Assert.That(target.Output.ToString()).IsEqualTo("Name");
+    }
 }

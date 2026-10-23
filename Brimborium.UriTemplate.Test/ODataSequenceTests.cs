@@ -94,4 +94,22 @@ public class ODataSequenceTests {
         var actStd = sut.Expand(template, substitutions);
         _ = await Assert.That(actStd).IsEqualTo(expected);
     }
+
+    [Test]
+    public async Task ODataSequenceUnresolvedItemLeavesNoPartialOutput() {
+        ODataSequence sequence = new(
+            "s",
+            [
+                new ODataFunction("fn", [new ODataVariable("missing", null)]),
+                new ODataFieldName("x")
+            ]);
+
+        IReadOnlyDictionary<string, object?> substitutions = new Dictionary<string, object?> {
+            { "s", new ODataExpression(sequence) },
+        };
+        Brimborium.UriTemplate.UriTemplateCache sut = new();
+
+        var actStd = sut.Expand("{?s}", substitutions);
+        _ = await Assert.That(actStd).IsEqualTo("?s=x");
+    }
 }

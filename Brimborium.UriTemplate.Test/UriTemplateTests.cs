@@ -144,6 +144,68 @@ public class UriTemplateTests {
     }
 
     [Test]
+    [Arguments("{+v}", "%%41", "%25%41")]
+    [Arguments("{+v}", "%4 x", "%254%20x")]
+    [Arguments("{+v}", "% x", "%25%20x")]
+    [Arguments("{#v}", "% x", "#%25%20x")]
+    [Arguments("{+v}", "%C3%A9", "%C3%A9")]
+    [Arguments("{+v}", "%E2%82%AC", "%E2%82%AC")]
+    [Arguments("{+v}", "%80", "%80")]
+    public async Task ReservedExpansionHandlesPercent(string template, string value, string expected) {
+        IReadOnlyDictionary<string, object?> substitutions = new Dictionary<string, object?> {
+            { "v", value },
+        };
+        Brimborium.UriTemplate.UriTemplateCache sut = new();
+
+        var actual = sut.Expand(template, substitutions);
+        _ = await Assert.That(actual).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments("{v}", "a\uD800b", "a%EF%BF%BDb")]
+    [Arguments("{+v}", "a\uD800b", "a%EF%BF%BDb")]
+    [Arguments("{v}", "\uD83D\uDE00\uD800", "%F0%9F%98%80%EF%BF%BD")]
+    [Arguments("{+v}", "\uDE00\uD83D\uDE00", "%EF%BF%BD%F0%9F%98%80")]
+    public async Task LoneSurrogateIsReplaced(string template, string value, string expected) {
+        IReadOnlyDictionary<string, object?> substitutions = new Dictionary<string, object?> {
+            { "v", value },
+        };
+        Brimborium.UriTemplate.UriTemplateCache sut = new();
+
+        var actual = sut.Expand(template, substitutions);
+        _ = await Assert.That(actual).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments("/a b{v}", "/a%20bx")]
+    [Arguments("/a%zz{v}", "/a%25zzx")]
+    [Arguments("/a%4{v}", "/a%254x")]
+    [Arguments("/a%{v}", "/a%25x")]
+    [Arguments("/a%20b{v}", "/a%20bx")]
+    [Arguments("/a\"<>\\^`|{v}", "/a%22%3C%3E%5C%5E%60%7Cx")]
+    [Arguments("/People('{v}')", "/People('x')")]
+    public async Task LiteralNotAllowedInUriIsPercentEncoded(string template, string expected) {
+        IReadOnlyDictionary<string, object?> substitutions = new Dictionary<string, object?> {
+            { "v", "x" },
+        };
+        Brimborium.UriTemplate.UriTemplateCache sut = new();
+
+        var actual = sut.Expand(template, substitutions);
+        _ = await Assert.That(actual).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task SemicolonListAndDictionaryKeepEqualsForEmptyFirstItem() {
+        Brimborium.UriTemplate.UriTemplateCache sut = new();
+        _ = await Assert.That(sut.Expand("{;list}", new Dictionary<string, object?> { { "list", new List<string> { "", "x" } } }))
+            .IsEqualTo(";list=,x");
+        _ = await Assert.That(sut.Expand("{;list}", new Dictionary<string, object?> { { "list", new List<string> { "" } } }))
+            .IsEqualTo(";list");
+        _ = await Assert.That(sut.Expand("{;keys}", new Dictionary<string, object?> { { "keys", new Dictionary<string, string> { { "", "v" } } } }))
+            .IsEqualTo(";keys=,v");
+    }
+
+    [Test]
     [Arguments("/a\r\nb{v}")]
     [Arguments("/a\rb{v}")]
     [Arguments("/a\nb{v}")]
@@ -161,19 +223,4 @@ public class UriTemplateTests {
         await Assert.That(() => sut.Expand(template, substitutions))
             .Throws<ArgumentException>();
     }
-
-    [Test]
-    public async Task TestFiles() {
-        var content_extended_tests = await System.IO.File.ReadAllTextAsync(GetFileName("extended-tests.json"));
-        _ = await Assert.That(content_extended_tests).IsNotNullOrEmpty();
-    }
-
-    private static string GetFileName(string filename) {
-        return System.IO.Path.Combine(GetFolder(), filename);
-
-        static string GetFolder([CallerFilePath] string callerFilePath = "") {
-            return System.IO.Path.GetDirectoryName(callerFilePath) ?? throw new Exception();
-        }
-    }
 }
-

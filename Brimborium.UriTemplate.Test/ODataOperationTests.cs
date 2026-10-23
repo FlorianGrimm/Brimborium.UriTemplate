@@ -21,4 +21,17 @@ public class ODataOperationTests {
             await Assert.That(output.ToString()).IsEqualTo(exptected);
         }
     }
+
+    [Test]
+    public async Task ODataOperationUnresolvedOperandLeavesNoOutput() {
+        StringBuilder output = new("x");
+        UriTemplateTarget target = new(output);
+        ODataOperation sut = new(
+            new ODataVariable("missing", null),
+            "eq",
+            new ODataValue(1));
+        var result = sut.AppendValue(target);
+        await Assert.That(result).IsFalse();
+        await Assert.That(output.ToString()).IsEqualTo("x");
+    }
 }

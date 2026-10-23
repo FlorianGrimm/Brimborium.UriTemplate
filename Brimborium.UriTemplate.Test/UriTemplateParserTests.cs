@@ -57,6 +57,19 @@ public class UriTemplateParserTests {
     }
 
     [Test]
+    [Arguments("{a:99999999999}")]
+    [Arguments("{a'b}")]
+    [Arguments("{a@b}")]
+    [Arguments("{a(b}")]
+    [Arguments("{a*b}")]
+    [Arguments("{a**}")]
+    [Arguments("{a*:3}")]
+    public async Task InvalidVarspecIsRejected(string template) {
+        await Assert.That(() => UriTemplateParser.Parse(template))
+            .Throws<ArgumentException>();
+    }
+
+    [Test]
     public async Task SpecialCasesTest() {
         {
             var ast = UriTemplateParser.Parse("{keys:1}");
@@ -78,6 +91,7 @@ public class UriTemplateParserTests {
     [Arguments("spec-examples.json")]
     [Arguments("extended-tests.json")]
     [Arguments("negative-tests.json")]
+    [Arguments("extended-tests.json")]
     public async Task FileTests(string filename) {
         var filenameFQN = GetFilename(filename);
         // Read and parse the JSON file

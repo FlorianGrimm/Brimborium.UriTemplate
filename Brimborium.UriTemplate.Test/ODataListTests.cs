@@ -97,4 +97,23 @@ public class ODataListTests {
         var actStd = sut.Expand(template, substitutions);
         _ = await Assert.That(actStd).IsEqualTo(expected);
     }
+
+    [Test]
+    public async Task ODataListUnresolvedOperationLeavesNoPartialOutput() {
+        ODataList filter = new(
+            "$filter",
+            "%20and%20",
+            [
+                new ODataOperation(new ODataVariable("missing", null), "eq", new ODataValue(1)),
+                new ODataOperation(new ODataFieldName("b"), "eq", new ODataValue(2))
+            ]);
+
+        IReadOnlyDictionary<string, object?> substitutions = new Dictionary<string, object?> {
+            { "$filter", new ODataExpression(filter) },
+        };
+        Brimborium.UriTemplate.UriTemplateCache sut = new();
+
+        var actStd = sut.Expand("{?$filter}", substitutions);
+        _ = await Assert.That(actStd).IsEqualTo("?$filter=b%20eq%202");
+    }
 }
