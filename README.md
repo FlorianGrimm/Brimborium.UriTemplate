@@ -1,6 +1,6 @@
 # Brimborium.UriTemplate
 
-based on Std.UriTemplate
+based on [https://github.com/std-uritemplate/std-uritemplate-csharp](https://github.com/std-uritemplate/std-uritemplate-csharp)
 
 ## Syntax
 
@@ -29,6 +29,7 @@ based on Std.UriTemplate
 ## Additional Features
 
 ODataValue sources can be used as UriTemplate parameters values.
+Parser produces an AST (Abstract Syntax Tree) of the UriTemplate, which can be cached for reuse. The AST can be used to analyze the UriTemplate, e.g. to determine which parameters are required and which are optional.
 
 ## Specifications
 
